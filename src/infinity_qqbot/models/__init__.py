@@ -1,0 +1,121 @@
+"""QQ 机器人数据模型（按域拆分，聚合导出）。
+
+- :mod:`~infinity_qqbot.models.base`：模型基类；
+- :mod:`~infinity_qqbot.models.enums`：Intents / OpCode 等枚举；
+- :mod:`~infinity_qqbot.models.common`：用户、频道、成员、身份组；
+- :mod:`~infinity_qqbot.models.message`：消息与消息组件；
+- :mod:`~infinity_qqbot.models.interaction`：互动数据；
+- :mod:`~infinity_qqbot.models.group`：群信息、群成员、入群申请；
+- :mod:`~infinity_qqbot.models.menu`：菜单与指令面板；
+- :mod:`~infinity_qqbot.models.responses`：OpenAPI 响应对象；
+- :mod:`~infinity_qqbot.models.payloads`：事件负载基础（供事件声明的嵌套 ``Payload`` 继承）。
+"""
+
+from .base import *
+from .common import *
+from .enums import *
+from .group import *
+from .interaction import *
+from .menu import *
+from .message import *
+from .payloads import *
+from .responses import *
+
+__all__: list[str] = [
+    'DMS',
+    'ARKData',
+    'AccessTokenResponse',
+    'Action',
+    'Announce',
+    'ApiPermission',
+    'ApiPermissionDemand',
+    'ApiPermissionList',
+    'AudioEventPayload',
+    'AuthorizeData',
+    'BotInfo',
+    'Button',
+    'Channel',
+    'ChannelEventPayload',
+    'ChannelMessageDeleteEventPayload',
+    'ChannelMessageEventPayload',
+    'ChatScene',
+    'FileUploadResponse',
+    'ForumEventPayload',
+    'FriendEventPayload',
+    'Gateway',
+    'GatewayBot',
+    'GroupBotState',
+    'GroupInfo',
+    'GroupJoinRequestEventPayload',
+    'GroupMember',
+    'GroupMemberEventPayload',
+    'GroupMemberPage',
+    'GroupRobotEventPayload',
+    'Guild',
+    'GuildEventPayload',
+    'GuildMember',
+    'GuildMemberEventPayload',
+    'InputNotify',
+    'Intents',
+    'InteractionData',
+    'InteractionEventPayload',
+    'InteractionMessageScene',
+    'InteractionResolved',
+    'InteractionType',
+    'JoinRequest',
+    'JoinRequestPage',
+    'JoinRequestVerifyInfo',
+    'Keyboard',
+    'KeyboardContent',
+    'MediaInfo',
+    'Menu',
+    'MenuItem',
+    'MenuResponse',
+    'MenuSwitch',
+    'MenuVersion',
+    'Message',
+    'MessageAttachment',
+    'MessageAuditEventPayload',
+    'MessageExtInfo',
+    'MessageMarkdown',
+    'MessageMarkdownParam',
+    'MessageReference',
+    'MessageResponse',
+    'MessageScene',
+    'Modal',
+    'MsgElement',
+    'MsgReceiveSwitchEventPayload',
+    'OpCode',
+    'Panel',
+    'PanelCreated',
+    'PanelInfo',
+    'PanelItem',
+    'PanelList',
+    'Permission',
+    'QQBotEventPayload',
+    'QQMessageEventPayload',
+    'QQModel',
+    'ReactionEmoji',
+    'ReactionEventPayload',
+    'ReactionTarget',
+    'ReactionUsers',
+    'ReadyEventPayload',
+    'RecommendChannel',
+    'RenderData',
+    'RestrictChatSetting',
+    'ReviewQA',
+    'Role',
+    'Row',
+    'Schedule',
+    'SendMessageType',
+    'SessionStartLimit',
+    'SetMemberMuteState',
+    'StreamMessageResponse',
+    'SubMenuItem',
+    'SubscribeMessageStatusEventPayload',
+    'UnknownEventPayload',
+    'UploadConfig',
+    'UploadPart',
+    'UploadPrepareResponse',
+    'User',
+]

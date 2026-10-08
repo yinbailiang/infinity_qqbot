@@ -1,0 +1,7 @@
+{
+  "chat.tools.urls.autoApprove": {
+    "https://code.visualstudio.com": true,
+    "https://github.com/microsoft/vscode/wiki/*": true,
+    "https://bot.q.qq.com/wiki": true
+  }
+}

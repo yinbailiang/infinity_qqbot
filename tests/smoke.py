@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import sys
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,12 @@ from infinity_qqbot import (
     send_c2c_message,
     wait_for_event,
 )
+
+# 输出被重定向的环境（如 Windows CI）默认使用非 UTF-8 编码（cp1252 等），
+# 直接打印中文会抛 UnicodeEncodeError；统一强制 stdout/stderr 为 UTF-8。
+for _stream in (sys.stdout, sys.stderr):
+    if isinstance(_stream, io.TextIOWrapper) and _stream.encoding and 'utf' not in _stream.encoding.lower():
+        _stream.reconfigure(encoding='utf-8', errors='replace')
 
 
 def check_declarations() -> None:

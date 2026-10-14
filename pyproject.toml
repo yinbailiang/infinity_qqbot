@@ -8,9 +8,14 @@ license-files = ["LICENSE.md"]
 authors = [
     { name = "infinity_system: yin_bailiang" },
 ]
+maintainers = [
+    { name = "yin_bailiang" },
+]
 keywords = [
+    "qq",
     "qqbot",
     "qq-bot",
+    "chatbot",
     "event-bus",
     "asyncio",
     "websocket",
@@ -18,11 +23,13 @@ keywords = [
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
+    "Framework :: AsyncIO",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.14",
+    "Topic :: Communications :: Chat",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]

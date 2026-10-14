@@ -112,7 +112,7 @@ QQBOT_API_BASE = 'https://api.bot.qq.com'
 QQBOT_TOKEN_PATH = '/app/getAppAccessToken'
 
 #: 默认 User-Agent
-_USER_AGENT = 'infinity-qqbot/0.1.0'
+_USER_AGENT = 'infinity-qqbot/0.1.1'
 
 
 class QQBotAPIError(ServiceError):

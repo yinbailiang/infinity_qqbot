@@ -25,7 +25,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 
-from infinity_bus import Event, EventBus, EventHandler, EventHandlerRegistry, EventRegistry, Regex
+from infinity_bus import Event, EventBus, EventDeclaration, EventHandler, EventHandlerRegistry, EventRegistry, Regex
 from infinity_bus.templates import InMemoryIdempotencyRecorder
 from pydantic import BaseModel
 
@@ -33,7 +33,18 @@ from infinity_qqbot import (
     ALL_EVENTS,
     AccessTokenResponse,
     C2CMessageCreateEvent,
+    C2CMsgReceiveEvent,
+    FriendAddEvent,
+    FriendEventPayload,
+    GroupAddRobotEvent,
+    GroupDelRobotEvent,
+    GroupMemberAddEvent,
+    GroupMemberEventPayload,
+    GroupMemberRemoveEvent,
+    GroupMsgReceiveEvent,
+    GroupRobotEventPayload,
     MessageResponse,
+    MsgReceiveSwitchEventPayload,
     QQBotAPI,
     QQBotAPIError,
     QQBotAPIHandler,
@@ -90,6 +101,28 @@ def check_declarations() -> None:
     assert SendC2CMessageRequestEvent.payload_type is SendC2CMessageRequest
 
     print('[ok] 模型分包、事件自动收集与 RPC 显式事件')
+
+
+def check_management_event_payloads() -> None:
+    """管理类事件（入群 / 成员 / 消息开关 / 好友）的整数时间戳（Unix 秒）解析。"""
+    cases: list[tuple[str, type[EventDeclaration], int]] = [
+        ('GROUP_ADD_ROBOT', GroupAddRobotEvent, 1791972342),
+        ('GROUP_DEL_ROBOT', GroupDelRobotEvent, 1784570535),
+        ('GROUP_MEMBER_ADD', GroupMemberAddEvent, 1784276757),
+        ('GROUP_MEMBER_REMOVE', GroupMemberRemoveEvent, 1784276759),
+        ('GROUP_MSG_RECEIVE', GroupMsgReceiveEvent, 1784276800),
+        ('FRIEND_ADD', FriendAddEvent, 1784570523),
+        ('C2C_MSG_RECEIVE', C2CMsgReceiveEvent, 1784570617),
+    ]
+    for type_name, decl, timestamp in cases:
+        resolved, payload = resolve_event(type_name, {'timestamp': timestamp})
+        assert resolved is decl, (type_name, resolved)
+        assert isinstance(
+            payload,
+            (FriendEventPayload, GroupMemberEventPayload, GroupRobotEventPayload, MsgReceiveSwitchEventPayload),
+        ), type_name
+        assert payload.timestamp == timestamp, type_name
+    print('[ok] 管理类事件整数时间戳（Unix 秒）解析')
 
 
 async def check_token_cache() -> None:
@@ -242,6 +275,7 @@ async def check_events() -> None:
 
 async def main() -> None:
     check_declarations()
+    check_management_event_payloads()
     await check_token_cache()
     await check_typed_rpc()
     await check_events()

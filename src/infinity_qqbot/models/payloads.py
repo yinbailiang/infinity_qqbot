@@ -128,21 +128,21 @@ class QQMessageEventPayload(QQBotEventPayload):
 class FriendEventPayload(QQBotEventPayload):
     """好友关系事件负载（FRIEND_ADD / FRIEND_DEL）。"""
 
-    timestamp: str | None = Field(default=None, description='事件时间')
+    timestamp: int | None = Field(default=None, description='事件时间戳（Unix 秒）')
     openid: str | None = Field(default=None, description='用户 OpenID')
 
 
 class MsgReceiveSwitchEventPayload(QQBotEventPayload):
     """消息接收开关事件负载（C2C_MSG_RECEIVE / REJECT、GROUP_MSG_RECEIVE / REJECT）。"""
 
-    timestamp: str | None = Field(default=None, description='事件时间')
+    timestamp: int | None = Field(default=None, description='事件时间戳（Unix 秒）')
     openid: str | None = Field(default=None, description='用户 / 群 OpenID')
 
 
 class GroupRobotEventPayload(QQBotEventPayload):
     """机器人出入群事件负载（GROUP_ADD_ROBOT / GROUP_DEL_ROBOT）。"""
 
-    timestamp: str | None = Field(default=None, description='事件时间')
+    timestamp: int | None = Field(default=None, description='事件时间戳（Unix 秒）')
     group_openid: str | None = Field(default=None, description='群 OpenID')
     op_member_openid: str | None = Field(default=None, description='操作者 OpenID')
 
@@ -150,7 +150,7 @@ class GroupRobotEventPayload(QQBotEventPayload):
 class GroupMemberEventPayload(QQBotEventPayload):
     """群成员出入群事件负载（GROUP_MEMBER_ADD / GROUP_MEMBER_REMOVE）。"""
 
-    timestamp: str | None = Field(default=None, description='事件时间')
+    timestamp: int | None = Field(default=None, description='事件时间戳（Unix 秒）')
     group_openid: str | None = Field(default=None, description='群 OpenID')
     member_openid: str | None = Field(default=None, description='成员 OpenID')
     op_member_openid: str | None = Field(default=None, description='操作者 OpenID')

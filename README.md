@@ -1,5 +1,9 @@
 # infinity-qqbot
 
+[![PyPI version](https://img.shields.io/pypi/v/infinity-qqbot)](https://pypi.org/project/infinity-qqbot/)
+[![Python versions](https://img.shields.io/pypi/pyversions/infinity-qqbot)](https://pypi.org/project/infinity-qqbot/)
+[![Test](https://github.com/yinbailiang/infinity_qqbot/actions/workflows/test.yml/badge.svg)](https://github.com/yinbailiang/infinity_qqbot/actions/workflows/test.yml)
+
 基于 [infinity_bus](https://github.com/yinbailiang/infinity_bus) 的 QQ 机器人引擎。
 
 - **`QQBotAPI`**：使用 `aiohttp` + `certifi` 完整封装 QQ 机器人开放平台 v2 接口
@@ -16,9 +20,27 @@
 
 ## 安装
 
+要求 **Python 3.14+**；运行依赖（`aiohttp` / `certifi` / `infinity-bus[templates]` /
+`infinity-parse`）随包自动安装。
+
+### 从 PyPI 安装（推荐）
+
 ```bash
-uv sync
+pip install infinity-qqbot
+
+# 或使用 uv
+uv add infinity-qqbot
 ```
+
+### 从源码安装（开发用）
+
+```bash
+git clone https://github.com/yinbailiang/infinity_qqbot.git
+cd infinity_qqbot
+uv sync --extra dev   # 含 ruff / pyright / interrogate / pre-commit / agent-kit
+```
+
+开发命令与质量门见下文 [开发](#开发) 一节。
 
 ## 快速开始
 

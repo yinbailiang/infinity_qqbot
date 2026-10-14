@@ -91,7 +91,7 @@ class QQBot:
         self._closed = True
         await self.gateway.close()
 
-    async def __aenter__(self) -> 'QQBot':
+    async def __aenter__(self) -> QQBot:
         return self
 
     async def __aexit__(self, *exc_info: Any) -> None:

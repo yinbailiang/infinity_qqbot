@@ -14,14 +14,16 @@
 from __future__ import annotations
 
 import asyncio
+import builtins
+import contextlib
 import json
 import logging
 import sys
 from collections.abc import AsyncIterator
-from typing import Any, Type, cast
+from typing import Any, cast
 
 import aiohttp
-from event_bus import EventDeclaration
+from infinity_bus import EventDeclaration
 from pydantic import BaseModel, Field
 
 from .api import QQBotAPI
@@ -58,7 +60,7 @@ class QQBotEvent(BaseModel):
     """网关下发的单个事件（Dispatch）。"""
 
     type: str = Field(description='QQ 平台事件类型，如 C2C_MESSAGE_CREATE')
-    declaration: Type[EventDeclaration] = Field(description='总线事件声明类（含总线事件名）')
+    declaration: builtins.type[EventDeclaration] = Field(description='总线事件声明类（含总线事件名）')
     payload: BaseModel = Field(description='已按声明解析的事件负载')
     raw: dict[str, Any] = Field(default_factory=dict, description='原始 d 数据')
     event_id: str | None = Field(default=None, description='事件 ID')
@@ -235,7 +237,7 @@ class QQBotGateway:
             while not self._closed:
                 try:
                     payload = await self._receive_payload(ws, timeout=timeout)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     logger.warning('QQBot 网关 %.0f 秒未收到任何消息（含心跳 ACK），主动重连', timeout)
                     break
                 if payload is None:
@@ -293,10 +295,8 @@ class QQBotGateway:
         finally:
             if heartbeat_task is not None:
                 heartbeat_task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await heartbeat_task
-                except asyncio.CancelledError:
-                    pass
             self._ws = None
             if not ws.closed:
                 await ws.close()

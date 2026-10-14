@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from event_bus import Event, EventBus
-from event_bus.templates import ServiceHandler, process
+from infinity_bus import Event, EventBus
+from infinity_bus.templates import ServiceHandler, process
 
 from ...api import QQBotAPI
 from ..interactions import (
@@ -96,7 +96,7 @@ class InteractionHandlersMixin(ServiceHandler):
     ) -> dict[str, Any]:
         """生成分享链接。"""
         result = await self._api.generate_url_link(
-            **(payload.model_extra or {}),
+            callback_data=payload.callback_data,
         )
         return {'result': result}
 

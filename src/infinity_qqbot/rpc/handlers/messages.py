@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from event_bus import Event, EventBus
-from event_bus.templates import ServiceHandler, process
+from infinity_bus import Event, EventBus
+from infinity_bus.templates import ServiceHandler, process
 
 from ...api import QQBotAPI
 from ..messages import (
@@ -79,6 +79,7 @@ class MessageHandlersMixin(ServiceHandler):
             message_reference=payload.message_reference,
             is_wakeup=payload.is_wakeup,
             input_notify=payload.input_notify,
+            force_verify_image_resource=payload.force_verify_image_resource,
         )
         return {'result': result}
 
@@ -167,8 +168,9 @@ class MessageHandlersMixin(ServiceHandler):
         await self._api.c2c_upload_part_finish(
             user_openid=payload.user_openid,
             upload_id=payload.upload_id,
-            index=payload.index,
-            **(payload.model_extra or {}),
+            part_index=payload.part_index,
+            block_size=payload.block_size,
+            md5=payload.md5,
         )
         return {'result': None}
 
@@ -193,6 +195,7 @@ class MessageHandlersMixin(ServiceHandler):
             message_reference=payload.message_reference,
             is_wakeup=payload.is_wakeup,
             input_notify=payload.input_notify,
+            force_verify_image_resource=payload.force_verify_image_resource,
         )
         return {'result': result}
 
@@ -258,7 +261,8 @@ class MessageHandlersMixin(ServiceHandler):
         await self._api.group_upload_part_finish(
             group_openid=payload.group_openid,
             upload_id=payload.upload_id,
-            index=payload.index,
-            **(payload.model_extra or {}),
+            part_index=payload.part_index,
+            block_size=payload.block_size,
+            md5=payload.md5,
         )
         return {'result': None}

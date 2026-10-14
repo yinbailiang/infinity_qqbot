@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from event_bus import Event, EventBus
-from event_bus.templates import ServiceHandler, process
+from infinity_bus import Event, EventBus
+from infinity_bus.templates import ServiceHandler, process
 
 from ...api import QQBotAPI
 from ..groups import (
@@ -187,7 +187,8 @@ class GroupHandlersMixin(ServiceHandler):
     ) -> dict[str, Any]:
         """查询入群自动审批策略列表。"""
         result = await self._api.get_join_approval_strategies(
-            **(payload.model_extra or {}),
+            cursor=payload.cursor,
+            limit=payload.limit,
         )
         return {'result': result}
 
@@ -200,7 +201,11 @@ class GroupHandlersMixin(ServiceHandler):
     ) -> dict[str, Any]:
         """创建入群自动审批策略。"""
         result = await self._api.create_join_approval_strategy(
-            **(payload.model_extra or {}),
+            group_openids=payload.group_openids,
+            group_ids=payload.group_ids,
+            is_enable=payload.is_enable,
+            expire_at=payload.expire_at,
+            remark=payload.remark,
         )
         return {'result': result}
 
@@ -214,7 +219,10 @@ class GroupHandlersMixin(ServiceHandler):
         """修改入群自动审批策略。"""
         result = await self._api.update_join_approval_strategy(
             strategy_id=payload.strategy_id,
-            **(payload.model_extra or {}),
+            is_enable=payload.is_enable,
+            expire_at=payload.expire_at,
+            group_action=payload.group_action,
+            remark=payload.remark,
         )
         return {'result': result}
 
@@ -239,11 +247,10 @@ class GroupHandlersMixin(ServiceHandler):
         raw_event: Event,
     ) -> dict[str, Any]:
         """执行入群自动审批策略。"""
-        result = await self._api.execute_join_approval_strategy(
+        await self._api.execute_join_approval_strategy(
             strategy_id=payload.strategy_id,
-            **(payload.model_extra or {}),
         )
-        return {'result': result}
+        return {'result': None}
 
     @process(UpdateJoinApprovalWhitelistRequestEvent, UpdateJoinApprovalWhitelistResponseEvent)
     async def update_join_approval_whitelist(
@@ -255,7 +262,8 @@ class GroupHandlersMixin(ServiceHandler):
         """修改入群自动审批策略白名单。"""
         result = await self._api.update_join_approval_whitelist(
             strategy_id=payload.strategy_id,
-            **(payload.model_extra or {}),
+            op=payload.op,
+            whitelist_users=payload.whitelist_users,
         )
         return {'result': result}
 
@@ -269,7 +277,8 @@ class GroupHandlersMixin(ServiceHandler):
         """群黑名单查询。"""
         result = await self._api.get_group_blacklist(
             group_openid=payload.group_openid,
-            **(payload.model_extra or {}),
+            cursor=payload.cursor,
+            limit=payload.limit,
         )
         return {'result': result}
 
@@ -283,7 +292,8 @@ class GroupHandlersMixin(ServiceHandler):
         """群黑名单操作。"""
         result = await self._api.operate_group_blacklist(
             group_openid=payload.group_openid,
-            **(payload.model_extra or {}),
+            op=payload.op,
+            member_openids=payload.member_openids,
         )
         return {'result': result}
 

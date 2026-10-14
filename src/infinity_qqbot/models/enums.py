@@ -5,11 +5,13 @@ from __future__ import annotations
 from enum import IntEnum, IntFlag
 
 __all__ = [
+    'AudioStatus',
     'ChatScene',
     'Intents',
     'InteractionType',
     'OpCode',
     'SendMessageType',
+    'ThreadFormat',
 ]
 
 
@@ -75,3 +77,21 @@ class ChatScene(IntEnum):
     CHANNEL = 0
     GROUP = 1
     C2C = 2
+
+
+class AudioStatus(IntEnum):
+    """音频控制 ``status`` 取值（``AudioControl.status``）。"""
+
+    START = 0
+    PAUSE = 1
+    RESUME = 2
+    STOP = 3
+
+
+class ThreadFormat(IntEnum):
+    """发表帖子 ``format`` 取值（``PUT /channels/{channel_id}/threads``）。"""
+
+    TEXT = 1
+    HTML = 2
+    MARKDOWN = 3
+    JSON = 4

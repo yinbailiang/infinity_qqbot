@@ -5,7 +5,7 @@
   请求 / 响应事件声明、强类型客户端函数）；
 - ``handlers``：``QQBotAPIHandler``（按类别 mixin 组装，显式关键字调用 ``QQBotAPI``）。
 
-生成的客户端底层直接使用 ``event_bus.templates.request`` 模板发起调用，
+生成的客户端底层直接使用 ``infinity_bus.templates.request`` 模板发起调用，
 失败（``success=False``）时抛出 :class:`~infinity_qqbot.api.QQBotAPIError`。
 
 使用示例::

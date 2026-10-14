@@ -1,4 +1,4 @@
-"""群聊对象：群信息、群成员、入群申请、禁言。"""
+"""群聊对象：群信息、群成员、入群申请、黑名单、自动审批策略、禁言。"""
 
 from __future__ import annotations
 
@@ -9,10 +9,19 @@ from pydantic import Field
 from .base import QQModel
 
 __all__ = [
+    'BlacklistUser',
+    'GroupBlacklistPage',
+    'GroupBlacklistResult',
     'GroupBotState',
     'GroupInfo',
     'GroupMember',
     'GroupMemberPage',
+    'JoinApprovalGroupAction',
+    'JoinApprovalStrategy',
+    'JoinApprovalStrategyCreated',
+    'JoinApprovalStrategyPage',
+    'JoinApprovalStrategyUpdated',
+    'JoinApprovalWhitelistResult',
     'JoinRequest',
     'JoinRequestPage',
     'JoinRequestVerifyInfo',
@@ -102,3 +111,80 @@ class SetMemberMuteState(QQModel):
 
 class RestrictChatSetting(QQModel):
     """群禁言状态（字段随平台更新，未建模字段可通过 extra 获取）。"""
+
+
+class BlacklistUser(QQModel):
+    """群黑名单用户。"""
+
+    union_openid: str | None = Field(default=None, description='跨应用统一标识（如有）')
+    member_openid: str | None = Field(default=None, description='用户 openid')
+    username: str | None = Field(default=None, description='用户昵称')
+    banned_at: str | None = Field(default=None, description='拉黑时间（RFC3339）')
+    bot: bool | None = Field(default=None, description='是否机器人账号')
+
+
+class GroupBlacklistPage(QQModel):
+    """群黑名单分页数据。"""
+
+    users: list[BlacklistUser] = Field(default_factory=list[BlacklistUser], description='黑名单用户列表')
+    next_cursor: str | None = Field(default=None, description='下一页游标，空串表示已到末页')
+
+
+class GroupBlacklistResult(QQModel):
+    """群黑名单操作结果。"""
+
+    fail_openids: list[str] = Field(default_factory=list[str], description='操作失败的 openid 列表')
+
+
+class JoinApprovalGroupAction(QQModel):
+    """入群自动审批策略的关联群增删操作。"""
+
+    op: Literal['add', 'del'] = Field(description='add 新增关联群 / del 删除关联群')
+    group_openids: list[str] | None = Field(default=None, description='群 openid 列表（与 group_ids 互斥）')
+    group_ids: list[str | int] | None = Field(default=None, description='QQ 群号列表（与 group_openids 互斥）')
+
+
+class JoinApprovalStrategy(QQModel):
+    """入群自动审批策略。"""
+
+    strategy_id: str = Field(description='策略 ID')
+    group_openids: list[str] = Field(default_factory=list[str], description='关联群 openid 列表')
+    group_ids: list[str | int] = Field(default_factory=list[str | int], description='关联 QQ 群号列表')
+    whitelist_user_count: int | None = Field(default=None, description='白名单号码数量（估算）')
+    is_enable: str | None = Field(default=None, description='on 启用 / off 关闭')
+    expire_at: str | None = Field(default=None, description='过期时间（RFC3339）')
+    created_at: str | None = Field(default=None, description='创建时间（RFC3339）')
+    updated_at: str | None = Field(default=None, description='最近更新时间（RFC3339）')
+    remark: str | None = Field(default=None, description='策略备注')
+
+
+class JoinApprovalStrategyPage(QQModel):
+    """入群自动审批策略分页数据。"""
+
+    strategies: list[JoinApprovalStrategy] = Field(
+        default_factory=list[JoinApprovalStrategy], description='生效中的策略列表'
+    )
+    next_cursor: str | None = Field(default=None, description='下一页游标，空串表示已到末页')
+
+
+class JoinApprovalStrategyCreated(QQModel):
+    """创建入群自动审批策略响应。"""
+
+    strategy_id: str = Field(description='策略 ID')
+    is_enable: str | None = Field(default=None, description='on 启用 / off 关闭')
+    expire_at: str | None = Field(default=None, description='过期时间（RFC3339）')
+
+
+class JoinApprovalStrategyUpdated(QQModel):
+    """修改入群自动审批策略响应。"""
+
+    is_enable: str | None = Field(default=None, description='on 启用 / off 关闭')
+    expire_at: str | None = Field(default=None, description='过期时间（RFC3339）')
+
+
+class JoinApprovalWhitelistResult(QQModel):
+    """修改白名单号码响应。"""
+
+    strategy_id: str | None = Field(default=None, description='策略 ID')
+    whitelist_user_count: int | None = Field(default=None, description='操作后白名单号码数（估算）')
+    updated_at: str | None = Field(default=None, description='策略更新时间（RFC3339）')

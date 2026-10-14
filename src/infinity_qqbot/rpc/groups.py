@@ -10,18 +10,25 @@ from __future__ import annotations
 
 from typing import Any
 
-from event_bus import EventBus, EventDeclaration
-from event_bus.templates import request
-from event_bus.templates.request import RequestProtocol, ResponseProtocol
+from infinity_bus import EventBus, EventDeclaration
+from infinity_bus.templates import request
+from infinity_bus.templates.request import RequestProtocol, ResponseProtocol
 from pydantic import ConfigDict
 
 from ..api import QQBotAPIError
 from ..events import qqbot_events
 from ..models import (
+    GroupBlacklistPage,
+    GroupBlacklistResult,
     GroupBotState,
     GroupInfo,
     GroupMember,
     GroupMemberPage,
+    JoinApprovalGroupAction,
+    JoinApprovalStrategyCreated,
+    JoinApprovalStrategyPage,
+    JoinApprovalStrategyUpdated,
+    JoinApprovalWhitelistResult,
     JoinRequestPage,
     RestrictChatSetting,
     SetMemberMuteState,
@@ -156,7 +163,7 @@ async def get_group_info(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> GroupInfo:
-    """获取群基本信息（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取群基本信息（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
     }
@@ -215,7 +222,7 @@ async def get_group_bot_state(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> GroupBotState:
-    """获取机器人群内状态（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取机器人群内状态（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
     }
@@ -276,7 +283,7 @@ async def get_group_members(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> GroupMemberPage:
-    """获取群成员列表（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取群成员列表（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
         'cursor': cursor,
@@ -338,7 +345,7 @@ async def get_group_member(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> GroupMember:
-    """获取群成员信息（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取群成员信息（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
         'member_openid': member_openid,
@@ -403,7 +410,7 @@ async def batch_remove_group_members(
     timeout: float | None = 60.0,
     **extra: Any,
 ) -> None:
-    """群成员批量移除（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """群成员批量移除（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
         'members': members,
@@ -467,7 +474,7 @@ async def get_join_request_list(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> JoinRequestPage:
-    """拉取入群申请列表（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """拉取入群申请列表（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
         'cursor': cursor,
@@ -539,7 +546,7 @@ async def approval_join_request(
     timeout: float | None = 60.0,
     **extra: Any,
 ) -> None:
-    """入群申请审批（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """入群申请审批（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
         'member_openid': member_openid,
@@ -570,13 +577,14 @@ async def approval_join_request(
 class GetJoinApprovalStrategiesRequest(RequestProtocol):
     """查询入群自动审批策略列表（``QQBotAPI.get_join_approval_strategies`` 请求参数）。"""
 
-    model_config = ConfigDict(extra='allow')
+    cursor: str | None = None
+    limit: int | None = None
 
 
 class GetJoinApprovalStrategiesResponse(ResponseProtocol):
     """查询入群自动审批策略列表响应。"""
 
-    result: dict[str, Any] | None = None
+    result: JoinApprovalStrategyPage | None = None
 
 
 @qqbot_events.event
@@ -598,13 +606,16 @@ class GetJoinApprovalStrategiesResponseEvent(EventDeclaration):
 async def get_join_approval_strategies(
     bus_proxy: EventBus.Proxy,
     *,
+    cursor: str | None = None,
+    limit: int | None = None,
     session_id: str | None = None,
     timeout: float | None = 60.0,
-    **extra: Any,
-) -> dict[str, Any]:
-    """查询入群自动审批策略列表（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
-    req_data: dict[str, Any] = {}
-    req_data.update(extra)
+) -> JoinApprovalStrategyPage:
+    """查询入群自动审批策略列表（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'cursor': cursor,
+        'limit': limit,
+    }
     response = await request(
         bus_proxy=bus_proxy,
         req_event=GetJoinApprovalStrategiesRequestEvent.name,
@@ -628,13 +639,17 @@ async def get_join_approval_strategies(
 class CreateJoinApprovalStrategyRequest(RequestProtocol):
     """创建入群自动审批策略（``QQBotAPI.create_join_approval_strategy`` 请求参数）。"""
 
-    model_config = ConfigDict(extra='allow')
+    group_openids: list[str] | None = None
+    group_ids: list[str | int] | None = None
+    is_enable: str | None = None
+    expire_at: str | None = None
+    remark: str | None = None
 
 
 class CreateJoinApprovalStrategyResponse(ResponseProtocol):
     """创建入群自动审批策略响应。"""
 
-    result: dict[str, Any] | None = None
+    result: JoinApprovalStrategyCreated | None = None
 
 
 @qqbot_events.event
@@ -656,13 +671,22 @@ class CreateJoinApprovalStrategyResponseEvent(EventDeclaration):
 async def create_join_approval_strategy(
     bus_proxy: EventBus.Proxy,
     *,
+    group_openids: list[str] | None = None,
+    group_ids: list[str | int] | None = None,
+    is_enable: str | None = None,
+    expire_at: str | None = None,
+    remark: str | None = None,
     session_id: str | None = None,
     timeout: float | None = 60.0,
-    **extra: Any,
-) -> dict[str, Any]:
-    """创建入群自动审批策略（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
-    req_data: dict[str, Any] = {}
-    req_data.update(extra)
+) -> JoinApprovalStrategyCreated:
+    """创建入群自动审批策略（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'group_openids': group_openids,
+        'group_ids': group_ids,
+        'is_enable': is_enable,
+        'expire_at': expire_at,
+        'remark': remark,
+    }
     response = await request(
         bus_proxy=bus_proxy,
         req_event=CreateJoinApprovalStrategyRequestEvent.name,
@@ -686,15 +710,17 @@ async def create_join_approval_strategy(
 class UpdateJoinApprovalStrategyRequest(RequestProtocol):
     """修改入群自动审批策略（``QQBotAPI.update_join_approval_strategy`` 请求参数）。"""
 
-    model_config = ConfigDict(extra='allow')
-
     strategy_id: str
+    is_enable: str | None = None
+    expire_at: str | None = None
+    group_action: JoinApprovalGroupAction | None = None
+    remark: str | None = None
 
 
 class UpdateJoinApprovalStrategyResponse(ResponseProtocol):
     """修改入群自动审批策略响应。"""
 
-    result: dict[str, Any] | None = None
+    result: JoinApprovalStrategyUpdated | None = None
 
 
 @qqbot_events.event
@@ -717,15 +743,21 @@ async def update_join_approval_strategy(
     bus_proxy: EventBus.Proxy,
     *,
     strategy_id: str,
+    is_enable: str | None = None,
+    expire_at: str | None = None,
+    group_action: JoinApprovalGroupAction | None = None,
+    remark: str | None = None,
     session_id: str | None = None,
     timeout: float | None = 60.0,
-    **extra: Any,
-) -> dict[str, Any]:
-    """修改入群自动审批策略（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+) -> JoinApprovalStrategyUpdated:
+    """修改入群自动审批策略（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'strategy_id': strategy_id,
+        'is_enable': is_enable,
+        'expire_at': expire_at,
+        'group_action': group_action,
+        'remark': remark,
     }
-    req_data.update(extra)
     response = await request(
         bus_proxy=bus_proxy,
         req_event=UpdateJoinApprovalStrategyRequestEvent.name,
@@ -781,7 +813,7 @@ async def delete_join_approval_strategy(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """删除入群自动审批策略（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """删除入群自动审批策略（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'strategy_id': strategy_id,
     }
@@ -807,15 +839,13 @@ async def delete_join_approval_strategy(
 class ExecuteJoinApprovalStrategyRequest(RequestProtocol):
     """执行入群自动审批策略（``QQBotAPI.execute_join_approval_strategy`` 请求参数）。"""
 
-    model_config = ConfigDict(extra='allow')
-
     strategy_id: str
 
 
 class ExecuteJoinApprovalStrategyResponse(ResponseProtocol):
     """执行入群自动审批策略响应。"""
 
-    result: dict[str, Any] | None = None
+    result: None = None
 
 
 @qqbot_events.event
@@ -840,13 +870,11 @@ async def execute_join_approval_strategy(
     strategy_id: str,
     session_id: str | None = None,
     timeout: float | None = 60.0,
-    **extra: Any,
-) -> dict[str, Any]:
-    """执行入群自动审批策略（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+) -> None:
+    """执行入群自动审批策略（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'strategy_id': strategy_id,
     }
-    req_data.update(extra)
     response = await request(
         bus_proxy=bus_proxy,
         req_event=ExecuteJoinApprovalStrategyRequestEvent.name,
@@ -858,7 +886,6 @@ async def execute_join_approval_strategy(
     if not response.success:
         raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
     assert isinstance(response, ExecuteJoinApprovalStrategyResponse)
-    assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
     return response.result
 
 
@@ -870,15 +897,15 @@ async def execute_join_approval_strategy(
 class UpdateJoinApprovalWhitelistRequest(RequestProtocol):
     """修改入群自动审批策略白名单（``QQBotAPI.update_join_approval_whitelist`` 请求参数）。"""
 
-    model_config = ConfigDict(extra='allow')
-
     strategy_id: str
+    op: str
+    whitelist_users: list[str]
 
 
 class UpdateJoinApprovalWhitelistResponse(ResponseProtocol):
     """修改入群自动审批策略白名单响应。"""
 
-    result: dict[str, Any] | None = None
+    result: JoinApprovalWhitelistResult | None = None
 
 
 @qqbot_events.event
@@ -901,15 +928,17 @@ async def update_join_approval_whitelist(
     bus_proxy: EventBus.Proxy,
     *,
     strategy_id: str,
+    op: str,
+    whitelist_users: list[str],
     session_id: str | None = None,
     timeout: float | None = 60.0,
-    **extra: Any,
-) -> dict[str, Any]:
-    """修改入群自动审批策略白名单（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+) -> JoinApprovalWhitelistResult:
+    """修改入群自动审批策略白名单（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'strategy_id': strategy_id,
+        'op': op,
+        'whitelist_users': whitelist_users,
     }
-    req_data.update(extra)
     response = await request(
         bus_proxy=bus_proxy,
         req_event=UpdateJoinApprovalWhitelistRequestEvent.name,
@@ -933,15 +962,15 @@ async def update_join_approval_whitelist(
 class GetGroupBlacklistRequest(RequestProtocol):
     """群黑名单查询（``QQBotAPI.get_group_blacklist`` 请求参数）。"""
 
-    model_config = ConfigDict(extra='allow')
-
     group_openid: str
+    cursor: str | None = None
+    limit: int | None = None
 
 
 class GetGroupBlacklistResponse(ResponseProtocol):
     """群黑名单查询响应。"""
 
-    result: dict[str, Any] | None = None
+    result: GroupBlacklistPage | None = None
 
 
 @qqbot_events.event
@@ -964,15 +993,17 @@ async def get_group_blacklist(
     bus_proxy: EventBus.Proxy,
     *,
     group_openid: str,
+    cursor: str | None = None,
+    limit: int | None = None,
     session_id: str | None = None,
     timeout: float | None = 60.0,
-    **extra: Any,
-) -> dict[str, Any]:
-    """群黑名单查询（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+) -> GroupBlacklistPage:
+    """群黑名单查询（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
+        'cursor': cursor,
+        'limit': limit,
     }
-    req_data.update(extra)
     response = await request(
         bus_proxy=bus_proxy,
         req_event=GetGroupBlacklistRequestEvent.name,
@@ -996,15 +1027,15 @@ async def get_group_blacklist(
 class OperateGroupBlacklistRequest(RequestProtocol):
     """群黑名单操作（``QQBotAPI.operate_group_blacklist`` 请求参数）。"""
 
-    model_config = ConfigDict(extra='allow')
-
     group_openid: str
+    op: str
+    member_openids: list[str]
 
 
 class OperateGroupBlacklistResponse(ResponseProtocol):
     """群黑名单操作响应。"""
 
-    result: dict[str, Any] | None = None
+    result: GroupBlacklistResult | None = None
 
 
 @qqbot_events.event
@@ -1027,15 +1058,17 @@ async def operate_group_blacklist(
     bus_proxy: EventBus.Proxy,
     *,
     group_openid: str,
+    op: str,
+    member_openids: list[str],
     session_id: str | None = None,
     timeout: float | None = 60.0,
-    **extra: Any,
-) -> dict[str, Any]:
-    """群黑名单操作（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+) -> GroupBlacklistResult:
+    """群黑名单操作（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
+        'op': op,
+        'member_openids': member_openids,
     }
-    req_data.update(extra)
     response = await request(
         bus_proxy=bus_proxy,
         req_event=OperateGroupBlacklistRequestEvent.name,
@@ -1091,7 +1124,7 @@ async def get_group_restrict_chat_setting(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> RestrictChatSetting:
-    """查询群禁言状态（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """查询群禁言状态（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
     }
@@ -1152,7 +1185,7 @@ async def set_group_member_mute(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """设置群成员禁言（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """设置群成员禁言（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
         'members': members,

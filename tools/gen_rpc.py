@@ -70,6 +70,7 @@ QQ_MESSAGE_FIELDS = (
     'message_reference: MessageReference | None = None',
     'is_wakeup: bool | None = None',
     'input_notify: InputNotify | None = None',
+    'force_verify_image_resource: bool | None = None',
 )
 
 FILE_FIELDS = (
@@ -132,8 +133,9 @@ MESSAGES: tuple[Method, ...] = (
         'None',
         'user_openid: str',
         'upload_id: str | None = None',
-        'index: int | None = None',
-        passthrough=True,
+        'part_index: int | None = None',
+        'block_size: str | None = None',
+        'md5: str | None = None',
     ),
     M('send_group_message', '发送群聊消息', 'MessageResponse', 'group_openid: str', *QQ_MESSAGE_FIELDS),
     M('recall_group_message', '撤回群聊消息', 'None', 'group_openid: str', 'message_id: str'),
@@ -145,8 +147,9 @@ MESSAGES: tuple[Method, ...] = (
         'None',
         'group_openid: str',
         'upload_id: str | None = None',
-        'index: int | None = None',
-        passthrough=True,
+        'part_index: int | None = None',
+        'block_size: str | None = None',
+        'md5: str | None = None',
     ),
 )
 
@@ -182,32 +185,59 @@ GROUPS: tuple[Method, ...] = (
         'reason: str | None = None',
         extra=True,
     ),
-    M('get_join_approval_strategies', '查询入群自动审批策略列表', 'dict[str, Any]', passthrough=True),
-    M('create_join_approval_strategy', '创建入群自动审批策略', 'dict[str, Any]', passthrough=True),
+    M(
+        'get_join_approval_strategies',
+        '查询入群自动审批策略列表',
+        'JoinApprovalStrategyPage',
+        'cursor: str | None = None',
+        'limit: int | None = None',
+    ),
+    M(
+        'create_join_approval_strategy',
+        '创建入群自动审批策略',
+        'JoinApprovalStrategyCreated',
+        'group_openids: list[str] | None = None',
+        'group_ids: list[str | int] | None = None',
+        'is_enable: str | None = None',
+        'expire_at: str | None = None',
+        'remark: str | None = None',
+    ),
     M(
         'update_join_approval_strategy',
         '修改入群自动审批策略',
-        'dict[str, Any]',
+        'JoinApprovalStrategyUpdated',
         'strategy_id: str',
-        passthrough=True,
+        'is_enable: str | None = None',
+        'expire_at: str | None = None',
+        'group_action: JoinApprovalGroupAction | None = None',
+        'remark: str | None = None',
     ),
     M('delete_join_approval_strategy', '删除入群自动审批策略', 'None', 'strategy_id: str'),
-    M(
-        'execute_join_approval_strategy',
-        '执行入群自动审批策略',
-        'dict[str, Any]',
-        'strategy_id: str',
-        passthrough=True,
-    ),
+    M('execute_join_approval_strategy', '执行入群自动审批策略', 'None', 'strategy_id: str'),
     M(
         'update_join_approval_whitelist',
         '修改入群自动审批策略白名单',
-        'dict[str, Any]',
+        'JoinApprovalWhitelistResult',
         'strategy_id: str',
-        passthrough=True,
+        'op: str',
+        'whitelist_users: list[str]',
     ),
-    M('get_group_blacklist', '群黑名单查询', 'dict[str, Any]', 'group_openid: str', passthrough=True),
-    M('operate_group_blacklist', '群黑名单操作', 'dict[str, Any]', 'group_openid: str', passthrough=True),
+    M(
+        'get_group_blacklist',
+        '群黑名单查询',
+        'GroupBlacklistPage',
+        'group_openid: str',
+        'cursor: str | None = None',
+        'limit: int | None = None',
+    ),
+    M(
+        'operate_group_blacklist',
+        '群黑名单操作',
+        'GroupBlacklistResult',
+        'group_openid: str',
+        'op: str',
+        'member_openids: list[str]',
+    ),
     M('get_group_restrict_chat_setting', '查询群禁言状态', 'RestrictChatSetting', 'group_openid: str'),
     M('set_group_member_mute', '设置群成员禁言', 'None', 'group_openid: str', 'members: list[SetMemberMuteState]'),
 )
@@ -222,7 +252,7 @@ INTERACTIONS: tuple[Method, ...] = (
         'after: str | None = None',
         'limit: int | None = None',
     ),
-    M('generate_url_link', '生成分享链接', 'dict[str, Any]', passthrough=True),
+    M('generate_url_link', '生成分享链接', 'UrlLinkResponse', 'callback_data: str | None = None'),
     M(
         'respond_interaction',
         '互动事件响应',
@@ -303,6 +333,16 @@ CHANNELS: tuple[Method, ...] = (
     ),
     M('get_guild_member', '获取频道成员详情', 'GuildMember', 'guild_id: str', 'user_id: str'),
     M(
+        'get_role_members',
+        '获取身份组成员列表',
+        'RoleMemberPage',
+        'guild_id: str',
+        'role_id: str',
+        'start_index: str | None = None',
+        'limit: int | None = None',
+    ),
+    M('get_channel_online_nums', '获取子频道在线成员数', 'OnlineNums', 'channel_id: str'),
+    M(
         'remove_guild_member',
         '移除频道成员',
         'None',
@@ -352,8 +392,49 @@ CHANNELS: tuple[Method, ...] = (
         'role_id: str',
         'channel_id: str | None = None',
     ),
+    M(
+        'get_channel_user_permissions',
+        '获取子频道用户权限',
+        'ChannelUserPermissions',
+        'channel_id: str',
+        'user_id: str',
+    ),
+    M(
+        'update_channel_user_permissions',
+        '修改子频道用户权限',
+        'None',
+        'channel_id: str',
+        'user_id: str',
+        'add: str | None = None',
+        'remove: str | None = None',
+    ),
+    M(
+        'get_channel_role_permissions',
+        '获取子频道身份组权限',
+        'ChannelRolePermissions',
+        'channel_id: str',
+        'role_id: str',
+    ),
+    M(
+        'update_channel_role_permissions',
+        '修改子频道身份组权限',
+        'None',
+        'channel_id: str',
+        'role_id: str',
+        'add: str | None = None',
+        'remove: str | None = None',
+    ),
     M('mute_guild', '频道全员禁言', 'None', 'guild_id: str', *MUTE_FIELDS),
     M('mute_guild_member', '指定成员禁言', 'None', 'guild_id: str', 'user_id: str', *MUTE_FIELDS),
+    M(
+        'mute_guild_multi_members',
+        '频道批量成员禁言',
+        'MuteUsersResult',
+        'guild_id: str',
+        'user_ids: list[str]',
+        *MUTE_FIELDS,
+    ),
+    M('get_message_setting', '获取频道消息频率设置', 'MessageSetting', 'guild_id: str'),
     M(
         'create_guild_announce',
         '创建频道公告',
@@ -426,6 +507,29 @@ CHANNELS: tuple[Method, ...] = (
         'schedule: Schedule',
     ),
     M('delete_schedule', '删除日程', 'None', 'channel_id: str', 'schedule_id: str'),
+    M(
+        'control_channel_audio',
+        '音频控制',
+        'None',
+        'channel_id: str',
+        'status: int',
+        'audio_url: str | None = None',
+        'text: str | None = None',
+    ),
+    M('join_mic', '机器人上麦', 'None', 'channel_id: str'),
+    M('leave_mic', '机器人下麦', 'None', 'channel_id: str'),
+    M('get_threads', '获取帖子列表', 'ThreadList', 'channel_id: str'),
+    M('get_thread', '获取帖子详情', 'ThreadDetail', 'channel_id: str', 'thread_id: str'),
+    M(
+        'create_thread',
+        '发表帖子',
+        'ThreadCreateResult',
+        'channel_id: str',
+        'title: str',
+        'content: str',
+        'format: int = 1',
+    ),
+    M('delete_thread', '删除帖子', 'None', 'channel_id: str', 'thread_id: str'),
 )
 
 CATEGORIES: dict[str, tuple[Method, ...]] = {
@@ -491,9 +595,9 @@ def _render_models_module(category: str, methods: tuple[Method, ...]) -> str:
         '',
         'from typing import Any',
         '',
-        'from event_bus import EventDeclaration, EventBus',
-        'from event_bus.templates import request',
-        'from event_bus.templates.request import RequestProtocol, ResponseProtocol',
+        'from infinity_bus import EventDeclaration, EventBus',
+        'from infinity_bus.templates import request',
+        'from infinity_bus.templates.request import RequestProtocol, ResponseProtocol',
     ]
     if uses_config:
         lines.append('from pydantic import ConfigDict')
@@ -571,7 +675,7 @@ def _render_models_module(category: str, methods: tuple[Method, ...]) -> str:
         if is_extra:
             lines.append('    **extra: Any,')
         lines.append(f') -> {result_type}:')
-        lines.append(f'    """{method.label}（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""')
+        lines.append(f'    """{method.label}（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""')
         if method.fields:
             lines.append('    req_data: dict[str, Any] = {')
             for fname, _ in method.fields:
@@ -623,8 +727,8 @@ def _render_handlers_module(category: str, methods: tuple[Method, ...]) -> str:
         '',
         'from typing import Any',
         '',
-        'from event_bus import Event, EventBus',
-        'from event_bus.templates import ServiceHandler, process',
+        'from infinity_bus import Event, EventBus',
+        'from infinity_bus.templates import ServiceHandler, process',
         '',
         'from ...api import QQBotAPI',
         f'from ..{category} import (',

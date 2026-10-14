@@ -10,10 +10,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from event_bus import EventBus, EventDeclaration
-from event_bus.templates import request
-from event_bus.templates.request import RequestProtocol, ResponseProtocol
-from pydantic import ConfigDict
+from infinity_bus import EventBus, EventDeclaration
+from infinity_bus.templates import request
+from infinity_bus.templates.request import RequestProtocol, ResponseProtocol
 
 from ..api import QQBotAPIError
 from ..events import qqbot_events
@@ -108,6 +107,7 @@ class SendC2CMessageRequest(RequestProtocol):
     message_reference: MessageReference | None = None
     is_wakeup: bool | None = None
     input_notify: InputNotify | None = None
+    force_verify_image_resource: bool | None = None
 
 
 class SendC2CMessageResponse(ResponseProtocol):
@@ -147,10 +147,11 @@ async def send_c2c_message(
     message_reference: MessageReference | None = None,
     is_wakeup: bool | None = None,
     input_notify: InputNotify | None = None,
+    force_verify_image_resource: bool | None = None,
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> MessageResponse:
-    """发送单聊消息（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """发送单聊消息（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'user_openid': user_openid,
         'content': content,
@@ -164,6 +165,7 @@ async def send_c2c_message(
         'message_reference': message_reference,
         'is_wakeup': is_wakeup,
         'input_notify': input_notify,
+        'force_verify_image_resource': force_verify_image_resource,
     }
     response = await request(
         bus_proxy=bus_proxy,
@@ -240,7 +242,7 @@ async def send_c2c_stream_message(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> StreamMessageResponse:
-    """流式发送单聊消息（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """流式发送单聊消息（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'user_openid': user_openid,
         'input_state': input_state,
@@ -311,7 +313,7 @@ async def recall_c2c_message(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """撤回单聊消息（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """撤回单聊消息（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'user_openid': user_openid,
         'message_id': message_id,
@@ -380,7 +382,7 @@ async def upload_c2c_file(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> FileUploadResponse:
-    """单聊富媒体上传（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """单聊富媒体上传（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'user_openid': user_openid,
         'file_type': file_type,
@@ -456,7 +458,7 @@ async def c2c_upload_prepare(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> UploadPrepareResponse:
-    """单聊富媒体预上传（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """单聊富媒体预上传（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'user_openid': user_openid,
         'file_type': file_type,
@@ -489,11 +491,11 @@ async def c2c_upload_prepare(
 class C2CUploadPartFinishRequest(RequestProtocol):
     """单聊分片上传完成（``QQBotAPI.c2c_upload_part_finish`` 请求参数）。"""
 
-    model_config = ConfigDict(extra='allow')
-
     user_openid: str
     upload_id: str | None = None
-    index: int | None = None
+    part_index: int | None = None
+    block_size: str | None = None
+    md5: str | None = None
 
 
 class C2CUploadPartFinishResponse(ResponseProtocol):
@@ -523,18 +525,20 @@ async def c2c_upload_part_finish(
     *,
     user_openid: str,
     upload_id: str | None = None,
-    index: int | None = None,
+    part_index: int | None = None,
+    block_size: str | None = None,
+    md5: str | None = None,
     session_id: str | None = None,
     timeout: float | None = 60.0,
-    **extra: Any,
 ) -> None:
-    """单聊分片上传完成（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """单聊分片上传完成（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'user_openid': user_openid,
         'upload_id': upload_id,
-        'index': index,
+        'part_index': part_index,
+        'block_size': block_size,
+        'md5': md5,
     }
-    req_data.update(extra)
     response = await request(
         bus_proxy=bus_proxy,
         req_event=C2CUploadPartFinishRequestEvent.name,
@@ -569,6 +573,7 @@ class SendGroupMessageRequest(RequestProtocol):
     message_reference: MessageReference | None = None
     is_wakeup: bool | None = None
     input_notify: InputNotify | None = None
+    force_verify_image_resource: bool | None = None
 
 
 class SendGroupMessageResponse(ResponseProtocol):
@@ -608,10 +613,11 @@ async def send_group_message(
     message_reference: MessageReference | None = None,
     is_wakeup: bool | None = None,
     input_notify: InputNotify | None = None,
+    force_verify_image_resource: bool | None = None,
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> MessageResponse:
-    """发送群聊消息（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """发送群聊消息（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
         'content': content,
@@ -625,6 +631,7 @@ async def send_group_message(
         'message_reference': message_reference,
         'is_wakeup': is_wakeup,
         'input_notify': input_notify,
+        'force_verify_image_resource': force_verify_image_resource,
     }
     response = await request(
         bus_proxy=bus_proxy,
@@ -683,7 +690,7 @@ async def recall_group_message(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """撤回群聊消息（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """撤回群聊消息（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
         'message_id': message_id,
@@ -752,7 +759,7 @@ async def upload_group_file(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> FileUploadResponse:
-    """群聊富媒体上传（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """群聊富媒体上传（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
         'file_type': file_type,
@@ -828,7 +835,7 @@ async def group_upload_prepare(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> UploadPrepareResponse:
-    """群聊富媒体预上传（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """群聊富媒体预上传（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
         'file_type': file_type,
@@ -861,11 +868,11 @@ async def group_upload_prepare(
 class GroupUploadPartFinishRequest(RequestProtocol):
     """群聊分片上传完成（``QQBotAPI.group_upload_part_finish`` 请求参数）。"""
 
-    model_config = ConfigDict(extra='allow')
-
     group_openid: str
     upload_id: str | None = None
-    index: int | None = None
+    part_index: int | None = None
+    block_size: str | None = None
+    md5: str | None = None
 
 
 class GroupUploadPartFinishResponse(ResponseProtocol):
@@ -895,18 +902,20 @@ async def group_upload_part_finish(
     *,
     group_openid: str,
     upload_id: str | None = None,
-    index: int | None = None,
+    part_index: int | None = None,
+    block_size: str | None = None,
+    md5: str | None = None,
     session_id: str | None = None,
     timeout: float | None = 60.0,
-    **extra: Any,
 ) -> None:
-    """群聊分片上传完成（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """群聊分片上传完成（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'group_openid': group_openid,
         'upload_id': upload_id,
-        'index': index,
+        'part_index': part_index,
+        'block_size': block_size,
+        'md5': md5,
     }
-    req_data.update(extra)
     response = await request(
         bus_proxy=bus_proxy,
         req_event=GroupUploadPartFinishRequestEvent.name,

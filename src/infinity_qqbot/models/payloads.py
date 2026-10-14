@@ -14,6 +14,7 @@ from .responses import ReactionEmoji, ReactionTarget
 
 __all__ = [
     'AudioEventPayload',
+    'AudioOrLiveChannelMemberEventPayload',
     'ChannelEventPayload',
     'ChannelMessageDeleteEventPayload',
     'ChannelMessageEventPayload',
@@ -27,6 +28,7 @@ __all__ = [
     'InteractionEventPayload',
     'MessageAuditEventPayload',
     'MsgReceiveSwitchEventPayload',
+    'OpenForumEventPayload',
     'QQBotEventPayload',
     'QQMessageEventPayload',
     'ReactionEventPayload',
@@ -223,6 +225,23 @@ class SubscribeMessageStatusEventPayload(QQBotEventPayload):
     openid: str | None = Field(default=None, description='用户 OpenID')
     scope: str | None = Field(default=None, description='授权范围')
     status: str | None = Field(default=None, description='授权状态')
+
+
+class AudioOrLiveChannelMemberEventPayload(QQBotEventPayload):
+    """音视频/直播子频道成员进出事件负载（AUDIO_OR_LIVE_CHANNEL_MEMBER_ENTER / EXIT）。"""
+
+    guild_id: str | None = Field(default=None, description='频道 ID')
+    channel_id: str | None = Field(default=None, description='子频道 ID')
+    channel_type: int | None = Field(default=None, description='2 音视频子频道 / 5 直播子频道')
+    user_id: str | None = Field(default=None, description='用户 ID')
+
+
+class OpenForumEventPayload(QQBotEventPayload):
+    """开放论坛事件负载（OPEN_FORUM_*，仅私域机器人可用）。"""
+
+    guild_id: str | None = Field(default=None, description='频道 ID')
+    channel_id: str | None = Field(default=None, description='子频道 ID')
+    author_id: str | None = Field(default=None, description='作者 ID')
 
 
 class UnknownEventPayload(QQBotEventPayload):

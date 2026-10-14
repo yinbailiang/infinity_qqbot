@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from event_bus import EventBus, EventDeclaration
-from event_bus.templates import request
-from event_bus.templates.request import RequestProtocol, ResponseProtocol
+from infinity_bus import EventBus, EventDeclaration
+from infinity_bus.templates import request
+from infinity_bus.templates.request import RequestProtocol, ResponseProtocol
 from pydantic import ConfigDict
 
 from ..api import QQBotAPIError
@@ -23,15 +23,24 @@ from ..models import (
     ApiPermissionDemand,
     ApiPermissionList,
     Channel,
+    ChannelRolePermissions,
+    ChannelUserPermissions,
     Guild,
     GuildMember,
     Message,
     MessageMarkdown,
     MessageReference,
+    MessageSetting,
+    MuteUsersResult,
+    OnlineNums,
     ReactionUsers,
     RecommendChannel,
     Role,
+    RoleMemberPage,
     Schedule,
+    ThreadCreateResult,
+    ThreadDetail,
+    ThreadList,
 )
 
 __all__ = [
@@ -47,6 +56,10 @@ __all__ = [
     'AddRoleMemberRequestEvent',
     'AddRoleMemberResponse',
     'AddRoleMemberResponseEvent',
+    'ControlChannelAudioRequest',
+    'ControlChannelAudioRequestEvent',
+    'ControlChannelAudioResponse',
+    'ControlChannelAudioResponseEvent',
     'CreateApiPermissionDemandRequest',
     'CreateApiPermissionDemandRequestEvent',
     'CreateApiPermissionDemandResponse',
@@ -75,6 +88,10 @@ __all__ = [
     'CreateScheduleRequestEvent',
     'CreateScheduleResponse',
     'CreateScheduleResponseEvent',
+    'CreateThreadRequest',
+    'CreateThreadRequestEvent',
+    'CreateThreadResponse',
+    'CreateThreadResponseEvent',
     'DeleteChannelAnnounceRequest',
     'DeleteChannelAnnounceRequestEvent',
     'DeleteChannelAnnounceResponse',
@@ -103,6 +120,10 @@ __all__ = [
     'DeleteScheduleRequestEvent',
     'DeleteScheduleResponse',
     'DeleteScheduleResponseEvent',
+    'DeleteThreadRequest',
+    'DeleteThreadRequestEvent',
+    'DeleteThreadResponse',
+    'DeleteThreadResponseEvent',
     'GetApiPermissionRequest',
     'GetApiPermissionRequestEvent',
     'GetApiPermissionResponse',
@@ -111,10 +132,22 @@ __all__ = [
     'GetChannelMessageRequestEvent',
     'GetChannelMessageResponse',
     'GetChannelMessageResponseEvent',
+    'GetChannelOnlineNumsRequest',
+    'GetChannelOnlineNumsRequestEvent',
+    'GetChannelOnlineNumsResponse',
+    'GetChannelOnlineNumsResponseEvent',
     'GetChannelRequest',
     'GetChannelRequestEvent',
     'GetChannelResponse',
     'GetChannelResponseEvent',
+    'GetChannelRolePermissionsRequest',
+    'GetChannelRolePermissionsRequestEvent',
+    'GetChannelRolePermissionsResponse',
+    'GetChannelRolePermissionsResponseEvent',
+    'GetChannelUserPermissionsRequest',
+    'GetChannelUserPermissionsRequestEvent',
+    'GetChannelUserPermissionsResponse',
+    'GetChannelUserPermissionsResponseEvent',
     'GetGuildChannelsRequest',
     'GetGuildChannelsRequestEvent',
     'GetGuildChannelsResponse',
@@ -135,6 +168,10 @@ __all__ = [
     'GetGuildRolesRequestEvent',
     'GetGuildRolesResponse',
     'GetGuildRolesResponseEvent',
+    'GetMessageSettingRequest',
+    'GetMessageSettingRequestEvent',
+    'GetMessageSettingResponse',
+    'GetMessageSettingResponseEvent',
     'GetPinsRequest',
     'GetPinsRequestEvent',
     'GetPinsResponse',
@@ -143,6 +180,10 @@ __all__ = [
     'GetReactionsRequestEvent',
     'GetReactionsResponse',
     'GetReactionsResponseEvent',
+    'GetRoleMembersRequest',
+    'GetRoleMembersRequestEvent',
+    'GetRoleMembersResponse',
+    'GetRoleMembersResponseEvent',
     'GetScheduleRequest',
     'GetScheduleRequestEvent',
     'GetScheduleResponse',
@@ -151,10 +192,30 @@ __all__ = [
     'GetSchedulesRequestEvent',
     'GetSchedulesResponse',
     'GetSchedulesResponseEvent',
+    'GetThreadRequest',
+    'GetThreadRequestEvent',
+    'GetThreadResponse',
+    'GetThreadResponseEvent',
+    'GetThreadsRequest',
+    'GetThreadsRequestEvent',
+    'GetThreadsResponse',
+    'GetThreadsResponseEvent',
+    'JoinMicRequest',
+    'JoinMicRequestEvent',
+    'JoinMicResponse',
+    'JoinMicResponseEvent',
+    'LeaveMicRequest',
+    'LeaveMicRequestEvent',
+    'LeaveMicResponse',
+    'LeaveMicResponseEvent',
     'MuteGuildMemberRequest',
     'MuteGuildMemberRequestEvent',
     'MuteGuildMemberResponse',
     'MuteGuildMemberResponseEvent',
+    'MuteGuildMultiMembersRequest',
+    'MuteGuildMultiMembersRequestEvent',
+    'MuteGuildMultiMembersResponse',
+    'MuteGuildMultiMembersResponseEvent',
     'MuteGuildRequest',
     'MuteGuildRequestEvent',
     'MuteGuildResponse',
@@ -187,6 +248,14 @@ __all__ = [
     'UpdateChannelRequestEvent',
     'UpdateChannelResponse',
     'UpdateChannelResponseEvent',
+    'UpdateChannelRolePermissionsRequest',
+    'UpdateChannelRolePermissionsRequestEvent',
+    'UpdateChannelRolePermissionsResponse',
+    'UpdateChannelRolePermissionsResponseEvent',
+    'UpdateChannelUserPermissionsRequest',
+    'UpdateChannelUserPermissionsRequestEvent',
+    'UpdateChannelUserPermissionsResponse',
+    'UpdateChannelUserPermissionsResponseEvent',
     'UpdateGuildRoleRequest',
     'UpdateGuildRoleRequestEvent',
     'UpdateGuildRoleResponse',
@@ -198,6 +267,7 @@ __all__ = [
     'add_pin',
     'add_reaction',
     'add_role_member',
+    'control_channel_audio',
     'create_api_permission_demand',
     'create_channel_announce',
     'create_dm_session',
@@ -205,6 +275,7 @@ __all__ = [
     'create_guild_channel',
     'create_guild_role',
     'create_schedule',
+    'create_thread',
     'delete_channel',
     'delete_channel_announce',
     'delete_guild_announce',
@@ -212,20 +283,31 @@ __all__ = [
     'delete_pin',
     'delete_reaction',
     'delete_schedule',
+    'delete_thread',
     'get_api_permission',
     'get_channel',
     'get_channel_message',
+    'get_channel_online_nums',
+    'get_channel_role_permissions',
+    'get_channel_user_permissions',
     'get_guild',
     'get_guild_channels',
     'get_guild_member',
     'get_guild_members',
     'get_guild_roles',
+    'get_message_setting',
     'get_pins',
     'get_reactions',
+    'get_role_members',
     'get_schedule',
     'get_schedules',
+    'get_thread',
+    'get_threads',
+    'join_mic',
+    'leave_mic',
     'mute_guild',
     'mute_guild_member',
+    'mute_guild_multi_members',
     'recall_channel_message',
     'recall_dm_message',
     'remove_guild_member',
@@ -233,6 +315,8 @@ __all__ = [
     'send_channel_message',
     'send_dm_message',
     'update_channel',
+    'update_channel_role_permissions',
+    'update_channel_user_permissions',
     'update_guild_role',
     'update_schedule',
 ]
@@ -278,7 +362,7 @@ async def get_guild(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> Guild:
-    """获取频道详情（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取频道详情（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
     }
@@ -337,7 +421,7 @@ async def get_guild_channels(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> list[Channel]:
-    """获取子频道列表（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取子频道列表（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
     }
@@ -413,7 +497,7 @@ async def create_guild_channel(
     timeout: float | None = 60.0,
     **extra: Any,
 ) -> Channel:
-    """创建子频道（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """创建子频道（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'name': name,
@@ -480,7 +564,7 @@ async def get_channel(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> Channel:
-    """获取子频道详情（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取子频道详情（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
     }
@@ -550,7 +634,7 @@ async def update_channel(
     timeout: float | None = 60.0,
     **extra: Any,
 ) -> Channel:
-    """修改子频道（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """修改子频道（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'name': name,
@@ -614,7 +698,7 @@ async def delete_channel(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """删除子频道（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """删除子频道（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
     }
@@ -688,7 +772,7 @@ async def send_channel_message(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> Message:
-    """发送子频道消息（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """发送子频道消息（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'content': content,
@@ -757,7 +841,7 @@ async def get_channel_message(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> Message:
-    """获取子频道消息（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取子频道消息（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'message_id': message_id,
@@ -821,7 +905,7 @@ async def recall_channel_message(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """撤回子频道消息（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """撤回子频道消息（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'message_id': message_id,
@@ -883,7 +967,7 @@ async def create_dm_session(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> DMS:
-    """创建频道私信会话（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """创建频道私信会话（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'recipient_id': recipient_id,
         'source_guild_id': source_guild_id,
@@ -959,7 +1043,7 @@ async def send_dm_message(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> Message:
-    """发送频道私信（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """发送频道私信（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'content': content,
@@ -1030,7 +1114,7 @@ async def recall_dm_message(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """撤回频道私信（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """撤回频道私信（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'message_id': message_id,
@@ -1094,7 +1178,7 @@ async def get_guild_members(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> list[GuildMember]:
-    """获取频道成员列表（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取频道成员列表（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'after': after,
@@ -1157,7 +1241,7 @@ async def get_guild_member(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> GuildMember:
-    """获取频道成员详情（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取频道成员详情（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'user_id': user_id,
@@ -1173,6 +1257,133 @@ async def get_guild_member(
     if not response.success:
         raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
     assert isinstance(response, GetGuildMemberResponse)
+    assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
+    return response.result
+
+
+# ======================================================================
+# get_role_members —— 获取身份组成员列表
+# ======================================================================
+
+
+class GetRoleMembersRequest(RequestProtocol):
+    """获取身份组成员列表（``QQBotAPI.get_role_members`` 请求参数）。"""
+
+    guild_id: str
+    role_id: str
+    start_index: str | None = None
+    limit: int | None = None
+
+
+class GetRoleMembersResponse(ResponseProtocol):
+    """获取身份组成员列表响应。"""
+
+    result: RoleMemberPage | None = None
+
+
+@qqbot_events.event
+class GetRoleMembersRequestEvent(EventDeclaration):
+    """获取身份组成员列表（请求事件 ``qqbot.api.get_role_members.request``）。"""
+
+    name = 'qqbot.api.get_role_members.request'
+    payload_type = GetRoleMembersRequest
+
+
+@qqbot_events.event
+class GetRoleMembersResponseEvent(EventDeclaration):
+    """获取身份组成员列表（响应事件 ``qqbot.api.get_role_members.response``）。"""
+
+    name = 'qqbot.api.get_role_members.response'
+    payload_type = GetRoleMembersResponse
+
+
+async def get_role_members(
+    bus_proxy: EventBus.Proxy,
+    *,
+    guild_id: str,
+    role_id: str,
+    start_index: str | None = None,
+    limit: int | None = None,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> RoleMemberPage:
+    """获取身份组成员列表（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'guild_id': guild_id,
+        'role_id': role_id,
+        'start_index': start_index,
+        'limit': limit,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=GetRoleMembersRequestEvent.name,
+        req_data=req_data,
+        resp_event=GetRoleMembersResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, GetRoleMembersResponse)
+    assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
+    return response.result
+
+
+# ======================================================================
+# get_channel_online_nums —— 获取子频道在线成员数
+# ======================================================================
+
+
+class GetChannelOnlineNumsRequest(RequestProtocol):
+    """获取子频道在线成员数（``QQBotAPI.get_channel_online_nums`` 请求参数）。"""
+
+    channel_id: str
+
+
+class GetChannelOnlineNumsResponse(ResponseProtocol):
+    """获取子频道在线成员数响应。"""
+
+    result: OnlineNums | None = None
+
+
+@qqbot_events.event
+class GetChannelOnlineNumsRequestEvent(EventDeclaration):
+    """获取子频道在线成员数（请求事件 ``qqbot.api.get_channel_online_nums.request``）。"""
+
+    name = 'qqbot.api.get_channel_online_nums.request'
+    payload_type = GetChannelOnlineNumsRequest
+
+
+@qqbot_events.event
+class GetChannelOnlineNumsResponseEvent(EventDeclaration):
+    """获取子频道在线成员数（响应事件 ``qqbot.api.get_channel_online_nums.response``）。"""
+
+    name = 'qqbot.api.get_channel_online_nums.response'
+    payload_type = GetChannelOnlineNumsResponse
+
+
+async def get_channel_online_nums(
+    bus_proxy: EventBus.Proxy,
+    *,
+    channel_id: str,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> OnlineNums:
+    """获取子频道在线成员数（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'channel_id': channel_id,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=GetChannelOnlineNumsRequestEvent.name,
+        req_data=req_data,
+        resp_event=GetChannelOnlineNumsResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, GetChannelOnlineNumsResponse)
     assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
     return response.result
 
@@ -1223,7 +1434,7 @@ async def remove_guild_member(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """移除频道成员（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """移除频道成员（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'user_id': user_id,
@@ -1286,7 +1497,7 @@ async def get_guild_roles(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> list[Role]:
-    """获取频道身份组列表（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取频道身份组列表（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'limit': limit,
@@ -1357,7 +1568,7 @@ async def create_guild_role(
     timeout: float | None = 60.0,
     **extra: Any,
 ) -> Role:
-    """创建频道身份组（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """创建频道身份组（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'name': name,
@@ -1429,7 +1640,7 @@ async def update_guild_role(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> Role:
-    """修改频道身份组（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """修改频道身份组（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'role_id': role_id,
@@ -1494,7 +1705,7 @@ async def delete_guild_role(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """删除频道身份组（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """删除频道身份组（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'role_id': role_id,
@@ -1559,7 +1770,7 @@ async def add_role_member(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """添加身份组成员（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """添加身份组成员（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'user_id': user_id,
@@ -1626,7 +1837,7 @@ async def remove_role_member(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """移除身份组成员（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """移除身份组成员（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'user_id': user_id,
@@ -1644,6 +1855,264 @@ async def remove_role_member(
     if not response.success:
         raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
     assert isinstance(response, RemoveRoleMemberResponse)
+    return response.result
+
+
+# ======================================================================
+# get_channel_user_permissions —— 获取子频道用户权限
+# ======================================================================
+
+
+class GetChannelUserPermissionsRequest(RequestProtocol):
+    """获取子频道用户权限（``QQBotAPI.get_channel_user_permissions`` 请求参数）。"""
+
+    channel_id: str
+    user_id: str
+
+
+class GetChannelUserPermissionsResponse(ResponseProtocol):
+    """获取子频道用户权限响应。"""
+
+    result: ChannelUserPermissions | None = None
+
+
+@qqbot_events.event
+class GetChannelUserPermissionsRequestEvent(EventDeclaration):
+    """获取子频道用户权限（请求事件 ``qqbot.api.get_channel_user_permissions.request``）。"""
+
+    name = 'qqbot.api.get_channel_user_permissions.request'
+    payload_type = GetChannelUserPermissionsRequest
+
+
+@qqbot_events.event
+class GetChannelUserPermissionsResponseEvent(EventDeclaration):
+    """获取子频道用户权限（响应事件 ``qqbot.api.get_channel_user_permissions.response``）。"""
+
+    name = 'qqbot.api.get_channel_user_permissions.response'
+    payload_type = GetChannelUserPermissionsResponse
+
+
+async def get_channel_user_permissions(
+    bus_proxy: EventBus.Proxy,
+    *,
+    channel_id: str,
+    user_id: str,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> ChannelUserPermissions:
+    """获取子频道用户权限（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'channel_id': channel_id,
+        'user_id': user_id,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=GetChannelUserPermissionsRequestEvent.name,
+        req_data=req_data,
+        resp_event=GetChannelUserPermissionsResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, GetChannelUserPermissionsResponse)
+    assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
+    return response.result
+
+
+# ======================================================================
+# update_channel_user_permissions —— 修改子频道用户权限
+# ======================================================================
+
+
+class UpdateChannelUserPermissionsRequest(RequestProtocol):
+    """修改子频道用户权限（``QQBotAPI.update_channel_user_permissions`` 请求参数）。"""
+
+    channel_id: str
+    user_id: str
+    add: str | None = None
+    remove: str | None = None
+
+
+class UpdateChannelUserPermissionsResponse(ResponseProtocol):
+    """修改子频道用户权限响应。"""
+
+    result: None = None
+
+
+@qqbot_events.event
+class UpdateChannelUserPermissionsRequestEvent(EventDeclaration):
+    """修改子频道用户权限（请求事件 ``qqbot.api.update_channel_user_permissions.request``）。"""
+
+    name = 'qqbot.api.update_channel_user_permissions.request'
+    payload_type = UpdateChannelUserPermissionsRequest
+
+
+@qqbot_events.event
+class UpdateChannelUserPermissionsResponseEvent(EventDeclaration):
+    """修改子频道用户权限（响应事件 ``qqbot.api.update_channel_user_permissions.response``）。"""
+
+    name = 'qqbot.api.update_channel_user_permissions.response'
+    payload_type = UpdateChannelUserPermissionsResponse
+
+
+async def update_channel_user_permissions(
+    bus_proxy: EventBus.Proxy,
+    *,
+    channel_id: str,
+    user_id: str,
+    add: str | None = None,
+    remove: str | None = None,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> None:
+    """修改子频道用户权限（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'channel_id': channel_id,
+        'user_id': user_id,
+        'add': add,
+        'remove': remove,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=UpdateChannelUserPermissionsRequestEvent.name,
+        req_data=req_data,
+        resp_event=UpdateChannelUserPermissionsResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, UpdateChannelUserPermissionsResponse)
+    return response.result
+
+
+# ======================================================================
+# get_channel_role_permissions —— 获取子频道身份组权限
+# ======================================================================
+
+
+class GetChannelRolePermissionsRequest(RequestProtocol):
+    """获取子频道身份组权限（``QQBotAPI.get_channel_role_permissions`` 请求参数）。"""
+
+    channel_id: str
+    role_id: str
+
+
+class GetChannelRolePermissionsResponse(ResponseProtocol):
+    """获取子频道身份组权限响应。"""
+
+    result: ChannelRolePermissions | None = None
+
+
+@qqbot_events.event
+class GetChannelRolePermissionsRequestEvent(EventDeclaration):
+    """获取子频道身份组权限（请求事件 ``qqbot.api.get_channel_role_permissions.request``）。"""
+
+    name = 'qqbot.api.get_channel_role_permissions.request'
+    payload_type = GetChannelRolePermissionsRequest
+
+
+@qqbot_events.event
+class GetChannelRolePermissionsResponseEvent(EventDeclaration):
+    """获取子频道身份组权限（响应事件 ``qqbot.api.get_channel_role_permissions.response``）。"""
+
+    name = 'qqbot.api.get_channel_role_permissions.response'
+    payload_type = GetChannelRolePermissionsResponse
+
+
+async def get_channel_role_permissions(
+    bus_proxy: EventBus.Proxy,
+    *,
+    channel_id: str,
+    role_id: str,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> ChannelRolePermissions:
+    """获取子频道身份组权限（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'channel_id': channel_id,
+        'role_id': role_id,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=GetChannelRolePermissionsRequestEvent.name,
+        req_data=req_data,
+        resp_event=GetChannelRolePermissionsResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, GetChannelRolePermissionsResponse)
+    assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
+    return response.result
+
+
+# ======================================================================
+# update_channel_role_permissions —— 修改子频道身份组权限
+# ======================================================================
+
+
+class UpdateChannelRolePermissionsRequest(RequestProtocol):
+    """修改子频道身份组权限（``QQBotAPI.update_channel_role_permissions`` 请求参数）。"""
+
+    channel_id: str
+    role_id: str
+    add: str | None = None
+    remove: str | None = None
+
+
+class UpdateChannelRolePermissionsResponse(ResponseProtocol):
+    """修改子频道身份组权限响应。"""
+
+    result: None = None
+
+
+@qqbot_events.event
+class UpdateChannelRolePermissionsRequestEvent(EventDeclaration):
+    """修改子频道身份组权限（请求事件 ``qqbot.api.update_channel_role_permissions.request``）。"""
+
+    name = 'qqbot.api.update_channel_role_permissions.request'
+    payload_type = UpdateChannelRolePermissionsRequest
+
+
+@qqbot_events.event
+class UpdateChannelRolePermissionsResponseEvent(EventDeclaration):
+    """修改子频道身份组权限（响应事件 ``qqbot.api.update_channel_role_permissions.response``）。"""
+
+    name = 'qqbot.api.update_channel_role_permissions.response'
+    payload_type = UpdateChannelRolePermissionsResponse
+
+
+async def update_channel_role_permissions(
+    bus_proxy: EventBus.Proxy,
+    *,
+    channel_id: str,
+    role_id: str,
+    add: str | None = None,
+    remove: str | None = None,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> None:
+    """修改子频道身份组权限（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'channel_id': channel_id,
+        'role_id': role_id,
+        'add': add,
+        'remove': remove,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=UpdateChannelRolePermissionsRequestEvent.name,
+        req_data=req_data,
+        resp_event=UpdateChannelRolePermissionsResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, UpdateChannelRolePermissionsResponse)
     return response.result
 
 
@@ -1691,7 +2160,7 @@ async def mute_guild(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """频道全员禁言（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """频道全员禁言（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'mute_seconds': mute_seconds,
@@ -1757,7 +2226,7 @@ async def mute_guild_member(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """指定成员禁言（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """指定成员禁言（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'user_id': user_id,
@@ -1775,6 +2244,133 @@ async def mute_guild_member(
     if not response.success:
         raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
     assert isinstance(response, MuteGuildMemberResponse)
+    return response.result
+
+
+# ======================================================================
+# mute_guild_multi_members —— 频道批量成员禁言
+# ======================================================================
+
+
+class MuteGuildMultiMembersRequest(RequestProtocol):
+    """频道批量成员禁言（``QQBotAPI.mute_guild_multi_members`` 请求参数）。"""
+
+    guild_id: str
+    user_ids: list[str]
+    mute_seconds: str | None = None
+    mute_end_timestamp: str | None = None
+
+
+class MuteGuildMultiMembersResponse(ResponseProtocol):
+    """频道批量成员禁言响应。"""
+
+    result: MuteUsersResult | None = None
+
+
+@qqbot_events.event
+class MuteGuildMultiMembersRequestEvent(EventDeclaration):
+    """频道批量成员禁言（请求事件 ``qqbot.api.mute_guild_multi_members.request``）。"""
+
+    name = 'qqbot.api.mute_guild_multi_members.request'
+    payload_type = MuteGuildMultiMembersRequest
+
+
+@qqbot_events.event
+class MuteGuildMultiMembersResponseEvent(EventDeclaration):
+    """频道批量成员禁言（响应事件 ``qqbot.api.mute_guild_multi_members.response``）。"""
+
+    name = 'qqbot.api.mute_guild_multi_members.response'
+    payload_type = MuteGuildMultiMembersResponse
+
+
+async def mute_guild_multi_members(
+    bus_proxy: EventBus.Proxy,
+    *,
+    guild_id: str,
+    user_ids: list[str],
+    mute_seconds: str | None = None,
+    mute_end_timestamp: str | None = None,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> MuteUsersResult:
+    """频道批量成员禁言（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'guild_id': guild_id,
+        'user_ids': user_ids,
+        'mute_seconds': mute_seconds,
+        'mute_end_timestamp': mute_end_timestamp,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=MuteGuildMultiMembersRequestEvent.name,
+        req_data=req_data,
+        resp_event=MuteGuildMultiMembersResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, MuteGuildMultiMembersResponse)
+    assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
+    return response.result
+
+
+# ======================================================================
+# get_message_setting —— 获取频道消息频率设置
+# ======================================================================
+
+
+class GetMessageSettingRequest(RequestProtocol):
+    """获取频道消息频率设置（``QQBotAPI.get_message_setting`` 请求参数）。"""
+
+    guild_id: str
+
+
+class GetMessageSettingResponse(ResponseProtocol):
+    """获取频道消息频率设置响应。"""
+
+    result: MessageSetting | None = None
+
+
+@qqbot_events.event
+class GetMessageSettingRequestEvent(EventDeclaration):
+    """获取频道消息频率设置（请求事件 ``qqbot.api.get_message_setting.request``）。"""
+
+    name = 'qqbot.api.get_message_setting.request'
+    payload_type = GetMessageSettingRequest
+
+
+@qqbot_events.event
+class GetMessageSettingResponseEvent(EventDeclaration):
+    """获取频道消息频率设置（响应事件 ``qqbot.api.get_message_setting.response``）。"""
+
+    name = 'qqbot.api.get_message_setting.response'
+    payload_type = GetMessageSettingResponse
+
+
+async def get_message_setting(
+    bus_proxy: EventBus.Proxy,
+    *,
+    guild_id: str,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> MessageSetting:
+    """获取频道消息频率设置（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'guild_id': guild_id,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=GetMessageSettingRequestEvent.name,
+        req_data=req_data,
+        resp_event=GetMessageSettingResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, GetMessageSettingResponse)
+    assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
     return response.result
 
 
@@ -1826,7 +2422,7 @@ async def create_guild_announce(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> Announce:
-    """创建频道公告（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """创建频道公告（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'message_id': message_id,
@@ -1891,7 +2487,7 @@ async def delete_guild_announce(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """删除频道公告（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """删除频道公告（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'message_id': message_id,
@@ -1954,7 +2550,7 @@ async def create_channel_announce(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> Announce:
-    """创建子频道公告（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """创建子频道公告（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'message_id': message_id,
@@ -2017,7 +2613,7 @@ async def delete_channel_announce(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """删除子频道公告（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """删除子频道公告（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'message_id': message_id,
@@ -2076,7 +2672,7 @@ async def get_api_permission(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> ApiPermissionList:
-    """获取频道可用权限列表（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取频道可用权限列表（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
     }
@@ -2141,7 +2737,7 @@ async def create_api_permission_demand(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> ApiPermissionDemand:
-    """创建频道 API 接口权限授权链接（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """创建频道 API 接口权限授权链接（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'guild_id': guild_id,
         'channel_id': channel_id,
@@ -2209,7 +2805,7 @@ async def add_reaction(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """添加表情表态（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """添加表情表态（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'message_id': message_id,
@@ -2276,7 +2872,7 @@ async def delete_reaction(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """删除表情表态（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """删除表情表态（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'message_id': message_id,
@@ -2343,7 +2939,7 @@ async def get_reactions(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> ReactionUsers:
-    """获取表情表态用户列表（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取表情表态用户列表（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'message_id': message_id,
@@ -2407,7 +3003,7 @@ async def add_pin(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """添加精华消息（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """添加精华消息（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'message_id': message_id,
@@ -2468,7 +3064,7 @@ async def delete_pin(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """删除精华消息（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """删除精华消息（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'message_id': message_id,
@@ -2527,7 +3123,7 @@ async def get_pins(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> list[Message]:
-    """获取精华消息列表（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取精华消息列表（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
     }
@@ -2588,7 +3184,7 @@ async def get_schedules(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> list[Schedule]:
-    """获取日程列表（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取日程列表（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'since': since,
@@ -2650,7 +3246,7 @@ async def create_schedule(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> Schedule:
-    """创建日程（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """创建日程（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'schedule': schedule,
@@ -2712,7 +3308,7 @@ async def get_schedule(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> Schedule:
-    """获取日程详情（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """获取日程详情（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'schedule_id': schedule_id,
@@ -2776,7 +3372,7 @@ async def update_schedule(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> Schedule:
-    """修改日程（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """修改日程（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'schedule_id': schedule_id,
@@ -2839,7 +3435,7 @@ async def delete_schedule(
     session_id: str | None = None,
     timeout: float | None = 60.0,
 ) -> None:
-    """删除日程（强类型 RPC 客户端，底层为 ``event_bus.templates.request``）。"""
+    """删除日程（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
     req_data: dict[str, Any] = {
         'channel_id': channel_id,
         'schedule_id': schedule_id,
@@ -2855,4 +3451,437 @@ async def delete_schedule(
     if not response.success:
         raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
     assert isinstance(response, DeleteScheduleResponse)
+    return response.result
+
+
+# ======================================================================
+# control_channel_audio —— 音频控制
+# ======================================================================
+
+
+class ControlChannelAudioRequest(RequestProtocol):
+    """音频控制（``QQBotAPI.control_channel_audio`` 请求参数）。"""
+
+    channel_id: str
+    status: int
+    audio_url: str | None = None
+    text: str | None = None
+
+
+class ControlChannelAudioResponse(ResponseProtocol):
+    """音频控制响应。"""
+
+    result: None = None
+
+
+@qqbot_events.event
+class ControlChannelAudioRequestEvent(EventDeclaration):
+    """音频控制（请求事件 ``qqbot.api.control_channel_audio.request``）。"""
+
+    name = 'qqbot.api.control_channel_audio.request'
+    payload_type = ControlChannelAudioRequest
+
+
+@qqbot_events.event
+class ControlChannelAudioResponseEvent(EventDeclaration):
+    """音频控制（响应事件 ``qqbot.api.control_channel_audio.response``）。"""
+
+    name = 'qqbot.api.control_channel_audio.response'
+    payload_type = ControlChannelAudioResponse
+
+
+async def control_channel_audio(
+    bus_proxy: EventBus.Proxy,
+    *,
+    channel_id: str,
+    status: int,
+    audio_url: str | None = None,
+    text: str | None = None,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> None:
+    """音频控制（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'channel_id': channel_id,
+        'status': status,
+        'audio_url': audio_url,
+        'text': text,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=ControlChannelAudioRequestEvent.name,
+        req_data=req_data,
+        resp_event=ControlChannelAudioResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, ControlChannelAudioResponse)
+    return response.result
+
+
+# ======================================================================
+# join_mic —— 机器人上麦
+# ======================================================================
+
+
+class JoinMicRequest(RequestProtocol):
+    """机器人上麦（``QQBotAPI.join_mic`` 请求参数）。"""
+
+    channel_id: str
+
+
+class JoinMicResponse(ResponseProtocol):
+    """机器人上麦响应。"""
+
+    result: None = None
+
+
+@qqbot_events.event
+class JoinMicRequestEvent(EventDeclaration):
+    """机器人上麦（请求事件 ``qqbot.api.join_mic.request``）。"""
+
+    name = 'qqbot.api.join_mic.request'
+    payload_type = JoinMicRequest
+
+
+@qqbot_events.event
+class JoinMicResponseEvent(EventDeclaration):
+    """机器人上麦（响应事件 ``qqbot.api.join_mic.response``）。"""
+
+    name = 'qqbot.api.join_mic.response'
+    payload_type = JoinMicResponse
+
+
+async def join_mic(
+    bus_proxy: EventBus.Proxy,
+    *,
+    channel_id: str,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> None:
+    """机器人上麦（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'channel_id': channel_id,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=JoinMicRequestEvent.name,
+        req_data=req_data,
+        resp_event=JoinMicResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, JoinMicResponse)
+    return response.result
+
+
+# ======================================================================
+# leave_mic —— 机器人下麦
+# ======================================================================
+
+
+class LeaveMicRequest(RequestProtocol):
+    """机器人下麦（``QQBotAPI.leave_mic`` 请求参数）。"""
+
+    channel_id: str
+
+
+class LeaveMicResponse(ResponseProtocol):
+    """机器人下麦响应。"""
+
+    result: None = None
+
+
+@qqbot_events.event
+class LeaveMicRequestEvent(EventDeclaration):
+    """机器人下麦（请求事件 ``qqbot.api.leave_mic.request``）。"""
+
+    name = 'qqbot.api.leave_mic.request'
+    payload_type = LeaveMicRequest
+
+
+@qqbot_events.event
+class LeaveMicResponseEvent(EventDeclaration):
+    """机器人下麦（响应事件 ``qqbot.api.leave_mic.response``）。"""
+
+    name = 'qqbot.api.leave_mic.response'
+    payload_type = LeaveMicResponse
+
+
+async def leave_mic(
+    bus_proxy: EventBus.Proxy,
+    *,
+    channel_id: str,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> None:
+    """机器人下麦（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'channel_id': channel_id,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=LeaveMicRequestEvent.name,
+        req_data=req_data,
+        resp_event=LeaveMicResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, LeaveMicResponse)
+    return response.result
+
+
+# ======================================================================
+# get_threads —— 获取帖子列表
+# ======================================================================
+
+
+class GetThreadsRequest(RequestProtocol):
+    """获取帖子列表（``QQBotAPI.get_threads`` 请求参数）。"""
+
+    channel_id: str
+
+
+class GetThreadsResponse(ResponseProtocol):
+    """获取帖子列表响应。"""
+
+    result: ThreadList | None = None
+
+
+@qqbot_events.event
+class GetThreadsRequestEvent(EventDeclaration):
+    """获取帖子列表（请求事件 ``qqbot.api.get_threads.request``）。"""
+
+    name = 'qqbot.api.get_threads.request'
+    payload_type = GetThreadsRequest
+
+
+@qqbot_events.event
+class GetThreadsResponseEvent(EventDeclaration):
+    """获取帖子列表（响应事件 ``qqbot.api.get_threads.response``）。"""
+
+    name = 'qqbot.api.get_threads.response'
+    payload_type = GetThreadsResponse
+
+
+async def get_threads(
+    bus_proxy: EventBus.Proxy,
+    *,
+    channel_id: str,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> ThreadList:
+    """获取帖子列表（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'channel_id': channel_id,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=GetThreadsRequestEvent.name,
+        req_data=req_data,
+        resp_event=GetThreadsResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, GetThreadsResponse)
+    assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
+    return response.result
+
+
+# ======================================================================
+# get_thread —— 获取帖子详情
+# ======================================================================
+
+
+class GetThreadRequest(RequestProtocol):
+    """获取帖子详情（``QQBotAPI.get_thread`` 请求参数）。"""
+
+    channel_id: str
+    thread_id: str
+
+
+class GetThreadResponse(ResponseProtocol):
+    """获取帖子详情响应。"""
+
+    result: ThreadDetail | None = None
+
+
+@qqbot_events.event
+class GetThreadRequestEvent(EventDeclaration):
+    """获取帖子详情（请求事件 ``qqbot.api.get_thread.request``）。"""
+
+    name = 'qqbot.api.get_thread.request'
+    payload_type = GetThreadRequest
+
+
+@qqbot_events.event
+class GetThreadResponseEvent(EventDeclaration):
+    """获取帖子详情（响应事件 ``qqbot.api.get_thread.response``）。"""
+
+    name = 'qqbot.api.get_thread.response'
+    payload_type = GetThreadResponse
+
+
+async def get_thread(
+    bus_proxy: EventBus.Proxy,
+    *,
+    channel_id: str,
+    thread_id: str,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> ThreadDetail:
+    """获取帖子详情（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'channel_id': channel_id,
+        'thread_id': thread_id,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=GetThreadRequestEvent.name,
+        req_data=req_data,
+        resp_event=GetThreadResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, GetThreadResponse)
+    assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
+    return response.result
+
+
+# ======================================================================
+# create_thread —— 发表帖子
+# ======================================================================
+
+
+class CreateThreadRequest(RequestProtocol):
+    """发表帖子（``QQBotAPI.create_thread`` 请求参数）。"""
+
+    channel_id: str
+    title: str
+    content: str
+    format: int = 1
+
+
+class CreateThreadResponse(ResponseProtocol):
+    """发表帖子响应。"""
+
+    result: ThreadCreateResult | None = None
+
+
+@qqbot_events.event
+class CreateThreadRequestEvent(EventDeclaration):
+    """发表帖子（请求事件 ``qqbot.api.create_thread.request``）。"""
+
+    name = 'qqbot.api.create_thread.request'
+    payload_type = CreateThreadRequest
+
+
+@qqbot_events.event
+class CreateThreadResponseEvent(EventDeclaration):
+    """发表帖子（响应事件 ``qqbot.api.create_thread.response``）。"""
+
+    name = 'qqbot.api.create_thread.response'
+    payload_type = CreateThreadResponse
+
+
+async def create_thread(
+    bus_proxy: EventBus.Proxy,
+    *,
+    channel_id: str,
+    title: str,
+    content: str,
+    format: int = 1,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> ThreadCreateResult:
+    """发表帖子（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'channel_id': channel_id,
+        'title': title,
+        'content': content,
+        'format': format,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=CreateThreadRequestEvent.name,
+        req_data=req_data,
+        resp_event=CreateThreadResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, CreateThreadResponse)
+    assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
+    return response.result
+
+
+# ======================================================================
+# delete_thread —— 删除帖子
+# ======================================================================
+
+
+class DeleteThreadRequest(RequestProtocol):
+    """删除帖子（``QQBotAPI.delete_thread`` 请求参数）。"""
+
+    channel_id: str
+    thread_id: str
+
+
+class DeleteThreadResponse(ResponseProtocol):
+    """删除帖子响应。"""
+
+    result: None = None
+
+
+@qqbot_events.event
+class DeleteThreadRequestEvent(EventDeclaration):
+    """删除帖子（请求事件 ``qqbot.api.delete_thread.request``）。"""
+
+    name = 'qqbot.api.delete_thread.request'
+    payload_type = DeleteThreadRequest
+
+
+@qqbot_events.event
+class DeleteThreadResponseEvent(EventDeclaration):
+    """删除帖子（响应事件 ``qqbot.api.delete_thread.response``）。"""
+
+    name = 'qqbot.api.delete_thread.response'
+    payload_type = DeleteThreadResponse
+
+
+async def delete_thread(
+    bus_proxy: EventBus.Proxy,
+    *,
+    channel_id: str,
+    thread_id: str,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> None:
+    """删除帖子（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'channel_id': channel_id,
+        'thread_id': thread_id,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=DeleteThreadRequestEvent.name,
+        req_data=req_data,
+        resp_event=DeleteThreadResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, DeleteThreadResponse)
     return response.result

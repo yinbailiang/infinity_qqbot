@@ -11,10 +11,15 @@
 - 单聊：发送 / 流式发送 / 撤回 / 富媒体上传（URL 与分片）；
 - 群聊：发送 / 撤回 / 富媒体上传 / 群信息 / 群成员 / 入群申请 / 黑名单 / 禁言；
 - 互动：``respond_interaction``；菜单与指令面板；
-- 频道：子频道管理、消息、私信、成员、身份组、禁言、公告、权限、表情表态、精华消息、日程。
+- 频道：子频道管理、消息、私信、成员、身份组、子频道权限、禁言（含批量）、公告、权限、
+  表情表态、精华消息、日程、音频控制、在线成员数、论坛帖子、消息频率设置。
 
 所有方法均为 ``async``，返回已解析的 Pydantic 模型（或 ``None``），
 失败时抛出 :class:`QQBotAPIError`。
+
+请求层默认对 HTTP 429 做有限次退避重试（尊重 ``Retry-After`` 响应头，可用
+``max_retries`` / ``retry_backoff`` / ``retry_max_wait`` 调节）；HTTP 201/202
+视为异步受理成功，即使响应体带有 ``err_code`` 也不再抛错，交由调用方按需检查。
 """
 
 from __future__ import annotations
@@ -30,7 +35,7 @@ from typing import Any, cast
 
 import aiohttp
 import certifi
-from event_bus.templates import ServiceError
+from infinity_bus.templates import ServiceError
 from pydantic import BaseModel
 
 from .models import (
@@ -41,9 +46,13 @@ from .models import (
     ApiPermissionList,
     BotInfo,
     Channel,
+    ChannelRolePermissions,
+    ChannelUserPermissions,
     FileUploadResponse,
     Gateway,
     GatewayBot,
+    GroupBlacklistPage,
+    GroupBlacklistResult,
     GroupBotState,
     GroupInfo,
     GroupMember,
@@ -51,6 +60,11 @@ from .models import (
     Guild,
     GuildMember,
     InputNotify,
+    JoinApprovalGroupAction,
+    JoinApprovalStrategyCreated,
+    JoinApprovalStrategyPage,
+    JoinApprovalStrategyUpdated,
+    JoinApprovalWhitelistResult,
     JoinRequestPage,
     Keyboard,
     MediaInfo,
@@ -61,6 +75,9 @@ from .models import (
     MessageMarkdown,
     MessageReference,
     MessageResponse,
+    MessageSetting,
+    MuteUsersResult,
+    OnlineNums,
     Panel,
     PanelCreated,
     PanelInfo,
@@ -69,10 +86,15 @@ from .models import (
     RecommendChannel,
     RestrictChatSetting,
     Role,
+    RoleMemberPage,
     Schedule,
     SetMemberMuteState,
     StreamMessageResponse,
+    ThreadCreateResult,
+    ThreadDetail,
+    ThreadList,
     UploadPrepareResponse,
+    UrlLinkResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -179,6 +201,9 @@ class QQBotAPI:
         base_url: str = QQBOT_API_BASE,
         token_url: str | None = None,
         timeout: float = 30.0,
+        max_retries: int = 2,
+        retry_backoff: float = 1.0,
+        retry_max_wait: float = 60.0,
         session: aiohttp.ClientSession | None = None,
         ssl_context: ssl.SSLContext | None = None,
     ) -> None:
@@ -190,6 +215,9 @@ class QQBotAPI:
             base_url: 统一请求地址，默认 ``https://api.bot.qq.com``。
             token_url: 凭证接口完整地址，默认 ``{base_url}/app/getAppAccessToken``。
             timeout: 单请求超时（秒）。
+            max_retries: HTTP 429 的最大重试次数（默认 2，指数退避）。
+            retry_backoff: 429 重试的基础等待秒数（无 ``Retry-After`` 时按 ``2^n`` 递增）。
+            retry_max_wait: 429 单次等待上限（秒）。
             session: 复用的 ``aiohttp.ClientSession``；不传则内部创建（并负责关闭）。
             ssl_context: 自定义 SSL 上下文；默认使用 certifi 证书包构建。
         """
@@ -198,6 +226,9 @@ class QQBotAPI:
         self._base_url = base_url.rstrip('/')
         self._token_url = token_url or f'{self._base_url}{QQBOT_TOKEN_PATH}'
         self._timeout = timeout
+        self._max_retries = max(0, int(max_retries))
+        self._retry_backoff = max(0.0, float(retry_backoff))
+        self._retry_max_wait = max(0.0, float(retry_max_wait))
         self._session = session
         self._owns_session = session is None
         self._ssl_context = ssl_context or ssl.create_default_context(cafile=certifi.where())
@@ -234,7 +265,7 @@ class QQBotAPI:
         if self._session is not None and self._owns_session and not self._session.closed:
             await self._session.close()
 
-    async def __aenter__(self) -> 'QQBotAPI':
+    async def __aenter__(self) -> QQBotAPI:
         await self.ensure_session()
         return self
 
@@ -256,40 +287,66 @@ class QQBotAPI:
         auth: bool = True,
         base_url: str | None = None,
     ) -> Any:
-        """发送请求并解析响应；失败时抛出 :class:`QQBotAPIError`。"""
+        """发送请求并解析响应；失败时抛出 :class:`QQBotAPIError`。
+
+        - HTTP 429：按 ``Retry-After``（缺省时指数退避）等待后重试，最多 ``max_retries`` 次；
+        - HTTP 201/202：异步受理成功，即使响应体带 ``err_code`` 也直接返回；
+        - 其他 2xx：响应体 ``err_code`` 非 0 时抛错；非 2xx 一律抛错。
+        """
         session = await self.ensure_session()
         request_headers = dict(headers or {})
         if auth:
             request_headers['Authorization'] = f'QQBot {await self.get_access_token()}'
         url = f'{base_url or self._base_url}{path}'
-        async with session.request(method, url, params=params, json=json_body, headers=request_headers) as resp:
-            status = resp.status
-            trace_id = resp.headers.get('X-Tps-trace-ID')
-            if status == 204:
-                return None
-            text = await resp.text()
-            data: Any = _parse_json(text)
-            body = _as_body(data)
-            if 200 <= status < 300:
+        attempt = 0
+        while True:
+            async with session.request(method, url, params=params, json=json_body, headers=request_headers) as resp:
+                status = resp.status
+                trace_id = resp.headers.get('X-Tps-trace-ID')
+                if status == 429 and attempt < self._max_retries:
+                    wait = self._retry_wait(resp.headers.get('Retry-After'), attempt)
+                    logger.warning('QQBot 触发限频（429），%.1f 秒后重试（第 %d 次）', wait, attempt + 1)
+                    await asyncio.sleep(wait)
+                    attempt += 1
+                    continue
+                if status == 204:
+                    return None
+                text = await resp.text()
+                data: Any = _parse_json(text)
+                body = _as_body(data)
+                if 200 <= status < 300:
+                    if body is not None and status not in (201, 202):
+                        code = body.get('err_code')
+                        if isinstance(code, int) and code != 0:
+                            raise QQBotAPIError(
+                                code,
+                                str(body.get('message', '')),
+                                trace_id=body.get('trace_id') or trace_id,
+                                status=status,
+                                payload=data,
+                            )
+                    if status in (201, 202):
+                        logger.info('QQBot 请求已异步受理（HTTP %s）：%s %s', status, method, path)
+                    return data
                 if body is not None:
                     code = body.get('err_code')
-                    if isinstance(code, int) and code != 0:
-                        raise QQBotAPIError(
-                            code,
-                            str(body.get('message', '')),
-                            trace_id=body.get('trace_id') or trace_id,
-                            status=status,
-                            payload=data,
-                        )
-                return data
-            if body is not None:
-                code = body.get('err_code')
-                message = str(body.get('message', text))
-                trace_id = body.get('trace_id') or trace_id
-            else:
-                code = None
-                message = text or f'HTTP {status}'
-            raise QQBotAPIError(code, message, trace_id=trace_id, status=status, payload=data)
+                    message = str(body.get('message', text))
+                    trace_id = body.get('trace_id') or trace_id
+                else:
+                    code = None
+                    message = text or f'HTTP {status}'
+                raise QQBotAPIError(code, message, trace_id=trace_id, status=status, payload=data)
+
+    def _retry_wait(self, retry_after: str | None, attempt: int) -> float:
+        """计算 429 重试等待秒数：优先 ``Retry-After``，缺省时指数退避并封顶。"""
+        if retry_after:
+            try:
+                wait = float(retry_after)
+            except ValueError:
+                wait = self._retry_backoff * (2**attempt)
+        else:
+            wait = self._retry_backoff * (2**attempt)
+        return max(0.0, min(wait, self._retry_max_wait))
 
     # ------------------------------------------------------------------
     # 凭证
@@ -368,10 +425,15 @@ class QQBotAPI:
         items: list[Any] = data or []
         return [Guild.model_validate(item) for item in items]
 
-    async def generate_url_link(self, **payload: Any) -> dict[str, Any]:
-        """生成分享链接（``POST /v2/generate_url_link``，字段随平台更新，透传）。"""
-        data = await self._request('POST', '/v2/generate_url_link', json_body=_compact(**payload))
-        return data or {}
+    async def generate_url_link(self, *, callback_data: str | None = None) -> UrlLinkResponse:
+        """生成分享链接（``POST /v2/generate_url_link``）。
+
+        Args:
+            callback_data: 回传给机器人后台的数据（最长 32 字符）；用户通过该链接
+                添加机器人时，参数会透传给开发者。
+        """
+        data = await self._request('POST', '/v2/generate_url_link', json_body=_compact(callback_data=callback_data))
+        return UrlLinkResponse.model_validate(data or {})
 
     # ------------------------------------------------------------------
     # 单聊消息
@@ -391,6 +453,7 @@ class QQBotAPI:
         message_reference: MessageReference | dict[str, Any] | None = None,
         is_wakeup: bool | None = None,
         input_notify: InputNotify | dict[str, Any] | None = None,
+        force_verify_image_resource: bool | None = None,
     ) -> dict[str, Any]:
         return _compact(
             content=content,
@@ -404,6 +467,7 @@ class QQBotAPI:
             message_reference=message_reference,
             is_wakeup=is_wakeup,
             input_notify=input_notify,
+            force_verify_image_resource=force_verify_image_resource,
         )
 
     async def send_c2c_message(
@@ -421,8 +485,13 @@ class QQBotAPI:
         message_reference: MessageReference | dict[str, Any] | None = None,
         is_wakeup: bool | None = None,
         input_notify: InputNotify | dict[str, Any] | None = None,
+        force_verify_image_resource: bool | None = None,
     ) -> MessageResponse:
-        """发送单聊消息（``POST /v2/users/{user_openid}/messages``）。"""
+        """发送单聊消息（``POST /v2/users/{user_openid}/messages``）。
+
+        ``force_verify_image_resource=True`` 时，图片转存失败会直接返回错误、
+        中断消息发送（默认 False，保持平台原有行为）。
+        """
         data = await self._request(
             'POST',
             f'/v2/users/{user_openid}/messages',
@@ -438,6 +507,7 @@ class QQBotAPI:
                 message_reference=message_reference,
                 is_wakeup=is_wakeup,
                 input_notify=input_notify,
+                force_verify_image_resource=force_verify_image_resource,
             ),
         )
         return MessageResponse.model_validate(data)
@@ -543,12 +613,25 @@ class QQBotAPI:
         )
         return UploadPrepareResponse.model_validate(data)
 
-    async def c2c_upload_part_finish(self, user_openid: str, **payload: Any) -> None:
+    async def c2c_upload_part_finish(
+        self,
+        user_openid: str,
+        *,
+        upload_id: str | None = None,
+        part_index: int | None = None,
+        block_size: str | None = None,
+        md5: str | None = None,
+    ) -> None:
         """单聊分片上传完成（``POST /v2/users/{user_openid}/upload_part_finish``）。
 
-        请求体字段随平台更新（如 ``upload_id`` / ``index``），直接透传。
+        预上传得到 ``upload_id`` / ``block_size`` 后，逐片 PUT 到预签名 URL，
+        再携带分片序号与分片 MD5 调用本接口确认该分片完成。
         """
-        await self._request('POST', f'/v2/users/{user_openid}/upload_part_finish', json_body=_compact(**payload))
+        await self._request(
+            'POST',
+            f'/v2/users/{user_openid}/upload_part_finish',
+            json_body=_compact(upload_id=upload_id, part_index=part_index, block_size=block_size, md5=md5),
+        )
 
     # ------------------------------------------------------------------
     # 群聊消息
@@ -569,6 +652,7 @@ class QQBotAPI:
         message_reference: MessageReference | dict[str, Any] | None = None,
         is_wakeup: bool | None = None,
         input_notify: InputNotify | dict[str, Any] | None = None,
+        force_verify_image_resource: bool | None = None,
     ) -> MessageResponse:
         """发送群聊消息（``POST /v2/groups/{group_openid}/messages``）。"""
         data = await self._request(
@@ -586,6 +670,7 @@ class QQBotAPI:
                 message_reference=message_reference,
                 is_wakeup=is_wakeup,
                 input_notify=input_notify,
+                force_verify_image_resource=force_verify_image_resource,
             ),
         )
         return MessageResponse.model_validate(data)
@@ -644,9 +729,21 @@ class QQBotAPI:
         )
         return UploadPrepareResponse.model_validate(data)
 
-    async def group_upload_part_finish(self, group_openid: str, **payload: Any) -> None:
-        """群聊分片上传完成（``POST /v2/groups/{group_openid}/upload_part_finish``，字段透传）。"""
-        await self._request('POST', f'/v2/groups/{group_openid}/upload_part_finish', json_body=_compact(**payload))
+    async def group_upload_part_finish(
+        self,
+        group_openid: str,
+        *,
+        upload_id: str | None = None,
+        part_index: int | None = None,
+        block_size: str | None = None,
+        md5: str | None = None,
+    ) -> None:
+        """群聊分片上传完成（``POST /v2/groups/{group_openid}/upload_part_finish``）。"""
+        await self._request(
+            'POST',
+            f'/v2/groups/{group_openid}/upload_part_finish',
+            json_body=_compact(upload_id=upload_id, part_index=part_index, block_size=block_size, md5=md5),
+        )
 
     # ------------------------------------------------------------------
     # 群信息 / 群成员 / 入群申请 / 黑名单 / 禁言
@@ -724,54 +821,115 @@ class QQBotAPI:
             json_body=_compact(join_request_id=join_request_id, approve=approve, reason=reason, **extra),
         )
 
-    async def get_join_approval_strategies(self, **params: Any) -> dict[str, Any]:
-        """查询入群自动审批策略列表（``GET /v2/groups/join_approval_strategy``，字段透传）。"""
-        data = await self._request('GET', '/v2/groups/join_approval_strategy', params=_compact(**params) or None)
-        return data or {}
-
-    async def create_join_approval_strategy(self, **payload: Any) -> dict[str, Any]:
-        """创建入群自动审批策略（``POST /v2/groups/join_approval_strategy``，字段透传）。"""
-        data = await self._request('POST', '/v2/groups/join_approval_strategy', json_body=_compact(**payload))
-        return data or {}
-
-    async def update_join_approval_strategy(self, strategy_id: str, **payload: Any) -> dict[str, Any]:
-        """修改入群自动审批策略（``PATCH /v2/groups/join_approval_strategy/{strategy_id}``，字段透传）。"""
+    async def get_join_approval_strategies(
+        self, *, cursor: str | None = None, limit: int | None = None
+    ) -> JoinApprovalStrategyPage:
+        """查询入群自动审批策略列表（``GET /v2/groups/join_approval_strategy``）。"""
         data = await self._request(
-            'PATCH', f'/v2/groups/join_approval_strategy/{strategy_id}', json_body=_compact(**payload)
+            'GET',
+            '/v2/groups/join_approval_strategy',
+            params=_compact(cursor=cursor, limit=limit) or None,
         )
-        return data or {}
+        return JoinApprovalStrategyPage.model_validate(data or {})
+
+    async def create_join_approval_strategy(
+        self,
+        *,
+        group_openids: Sequence[str] | None = None,
+        group_ids: Sequence[str | int] | None = None,
+        is_enable: str | None = None,
+        expire_at: str | None = None,
+        remark: str | None = None,
+    ) -> JoinApprovalStrategyCreated:
+        """创建入群自动审批策略（``POST /v2/groups/join_approval_strategy``）。
+
+        ``group_openids`` 与 ``group_ids`` 二选一必填，单者最多 100 个。
+        """
+        data = await self._request(
+            'POST',
+            '/v2/groups/join_approval_strategy',
+            json_body=_compact(
+                group_openids=group_openids,
+                group_ids=group_ids,
+                is_enable=is_enable,
+                expire_at=expire_at,
+                remark=remark,
+            ),
+        )
+        return JoinApprovalStrategyCreated.model_validate(data or {})
+
+    async def update_join_approval_strategy(
+        self,
+        strategy_id: str,
+        *,
+        is_enable: str | None = None,
+        expire_at: str | None = None,
+        group_action: JoinApprovalGroupAction | dict[str, Any] | None = None,
+        remark: str | None = None,
+    ) -> JoinApprovalStrategyUpdated:
+        """修改入群自动审批策略（``PATCH /v2/groups/join_approval_strategy/{strategy_id}``）。"""
+        data = await self._request(
+            'PATCH',
+            f'/v2/groups/join_approval_strategy/{strategy_id}',
+            json_body=_compact(
+                is_enable=is_enable,
+                expire_at=expire_at,
+                group_action=group_action,
+                remark=remark,
+            ),
+        )
+        return JoinApprovalStrategyUpdated.model_validate(data or {})
 
     async def delete_join_approval_strategy(self, strategy_id: str) -> None:
         """删除入群自动审批策略（``DELETE /v2/groups/join_approval_strategy/{strategy_id}``）。"""
         await self._request('DELETE', f'/v2/groups/join_approval_strategy/{strategy_id}')
 
-    async def execute_join_approval_strategy(self, strategy_id: str, **payload: Any) -> dict[str, Any]:
-        """执行入群自动审批策略（``POST .../{strategy_id}/execute``，字段透传）。"""
-        data = await self._request(
-            'POST', f'/v2/groups/join_approval_strategy/{strategy_id}/execute', json_body=_compact(**payload)
-        )
-        return data or {}
+    async def execute_join_approval_strategy(self, strategy_id: str) -> None:
+        """执行入群自动审批策略（``POST .../{strategy_id}/execute``，异步约 10 分钟完成）。"""
+        await self._request('POST', f'/v2/groups/join_approval_strategy/{strategy_id}/execute')
 
-    async def update_join_approval_whitelist(self, strategy_id: str, **payload: Any) -> dict[str, Any]:
-        """修改入群自动审批策略白名单（``POST .../{strategy_id}/whitelist_users``，字段透传）。"""
+    async def update_join_approval_whitelist(
+        self, strategy_id: str, *, op: str, whitelist_users: Sequence[str]
+    ) -> JoinApprovalWhitelistResult:
+        """修改入群自动审批策略白名单（``POST .../{strategy_id}/whitelist_users``）。
+
+        Args:
+            op: ``add`` 新增号码 / ``del`` 删除号码。
+            whitelist_users: QQ 号码列表，单次最多 10000 个。
+        """
         data = await self._request(
             'POST',
             f'/v2/groups/join_approval_strategy/{strategy_id}/whitelist_users',
-            json_body=_compact(**payload),
+            json_body=_compact(op=op, whitelist_users=whitelist_users),
         )
-        return data or {}
+        return JoinApprovalWhitelistResult.model_validate(data or {})
 
-    async def get_group_blacklist(self, group_openid: str, **params: Any) -> dict[str, Any]:
-        """群黑名单查询（``GET /v2/groups/{group_openid}/member_blacklist``，字段透传）。"""
+    async def get_group_blacklist(
+        self, group_openid: str, *, cursor: str | None = None, limit: int | None = None
+    ) -> GroupBlacklistPage:
+        """群黑名单查询（``GET /v2/groups/{group_openid}/member_blacklist``）。"""
         data = await self._request(
-            'GET', f'/v2/groups/{group_openid}/member_blacklist', params=_compact(**params) or None
+            'GET',
+            f'/v2/groups/{group_openid}/member_blacklist',
+            params=_compact(cursor=cursor, limit=limit) or None,
         )
-        return data or {}
+        return GroupBlacklistPage.model_validate(data or {})
 
-    async def operate_group_blacklist(self, group_openid: str, **payload: Any) -> dict[str, Any]:
-        """群黑名单操作（``POST /v2/groups/{group_openid}/member_blacklist``，字段透传）。"""
-        data = await self._request('POST', f'/v2/groups/{group_openid}/member_blacklist', json_body=_compact(**payload))
-        return data or {}
+    async def operate_group_blacklist(
+        self, group_openid: str, *, op: str, member_openids: Sequence[str]
+    ) -> GroupBlacklistResult:
+        """群黑名单操作（``POST /v2/groups/{group_openid}/member_blacklist``）。
+
+        Args:
+            op: ``add`` 加入黑名单 / ``del`` 移出黑名单；目标成员在群中时无法加入。
+            member_openids: 目标成员 openid 列表，单次最多 20 个。
+        """
+        data = await self._request(
+            'POST',
+            f'/v2/groups/{group_openid}/member_blacklist',
+            json_body=_compact(op=op, member_openids=member_openids),
+        )
+        return GroupBlacklistResult.model_validate(data or {})
 
     async def get_group_restrict_chat_setting(self, group_openid: str) -> RestrictChatSetting:
         """查询群禁言状态（``GET /v2/groups/{group_openid}/restrict_chat_setting``）。"""
@@ -1064,6 +1222,30 @@ class QQBotAPI:
         data = await self._request('GET', f'/guilds/{guild_id}/members/{user_id}')
         return GuildMember.model_validate(data)
 
+    async def get_role_members(
+        self,
+        guild_id: str,
+        role_id: str,
+        *,
+        start_index: str | None = None,
+        limit: int | None = None,
+    ) -> RoleMemberPage:
+        """获取身份组成员列表（``GET /guilds/{guild_id}/roles/{role_id}/members``）。
+
+        仅私域机器人可用；``start_index`` 传上一次回包的 ``next``，首次传 ``0``。
+        """
+        data = await self._request(
+            'GET',
+            f'/guilds/{guild_id}/roles/{role_id}/members',
+            params={'start_index': start_index, 'limit': limit},
+        )
+        return RoleMemberPage.model_validate(data or {})
+
+    async def get_channel_online_nums(self, channel_id: str) -> OnlineNums:
+        """获取子频道在线成员数（``GET /channels/{channel_id}/online_nums``，音视频/直播子频道）。"""
+        data = await self._request('GET', f'/channels/{channel_id}/online_nums')
+        return OnlineNums.model_validate(data or {})
+
     async def remove_guild_member(
         self,
         guild_id: str,
@@ -1148,6 +1330,39 @@ class QQBotAPI:
             json_body=_compact(channel_id=channel_id) or None,
         )
 
+    async def get_channel_user_permissions(self, channel_id: str, user_id: str) -> ChannelUserPermissions:
+        """获取子频道用户权限（``GET /channels/{channel_id}/members/{user_id}/permissions``）。"""
+        data = await self._request('GET', f'/channels/{channel_id}/members/{user_id}/permissions')
+        return ChannelUserPermissions.model_validate(data or {})
+
+    async def update_channel_user_permissions(
+        self, channel_id: str, user_id: str, *, add: str | None = None, remove: str | None = None
+    ) -> None:
+        """修改子频道用户权限（``PUT /channels/{channel_id}/members/{user_id}/permissions``）。
+
+        ``add`` / ``remove`` 为字符串形式的权限位图；同一位同时为 1 时表现为删除权限。
+        """
+        await self._request(
+            'PUT',
+            f'/channels/{channel_id}/members/{user_id}/permissions',
+            json_body=_compact(add=add, remove=remove),
+        )
+
+    async def get_channel_role_permissions(self, channel_id: str, role_id: str) -> ChannelRolePermissions:
+        """获取子频道身份组权限（``GET /channels/{channel_id}/roles/{role_id}/permissions``）。"""
+        data = await self._request('GET', f'/channels/{channel_id}/roles/{role_id}/permissions')
+        return ChannelRolePermissions.model_validate(data or {})
+
+    async def update_channel_role_permissions(
+        self, channel_id: str, role_id: str, *, add: str | None = None, remove: str | None = None
+    ) -> None:
+        """修改子频道身份组权限（``PUT /channels/{channel_id}/roles/{role_id}/permissions``）。"""
+        await self._request(
+            'PUT',
+            f'/channels/{channel_id}/roles/{role_id}/permissions',
+            json_body=_compact(add=add, remove=remove),
+        )
+
     # ------------------------------------------------------------------
     # 禁言 / 公告 / API 权限
     # ------------------------------------------------------------------
@@ -1180,6 +1395,31 @@ class QQBotAPI:
             f'/guilds/{guild_id}/members/{user_id}/mute',
             json_body=_compact(mute_seconds=mute_seconds, mute_end_timestamp=mute_end_timestamp),
         )
+
+    async def mute_guild_multi_members(
+        self,
+        guild_id: str,
+        user_ids: Sequence[str],
+        *,
+        mute_seconds: str | None = None,
+        mute_end_timestamp: str | None = None,
+    ) -> MuteUsersResult:
+        """频道批量成员禁言（``PATCH /guilds/{guild_id}/mute``）。
+
+        与全员禁言共用路径，携带 ``user_ids`` 时按成员批量禁言；``mute_seconds`` /
+        ``mute_end_timestamp`` 传 ``'0'`` 可批量解除禁言。
+        """
+        data = await self._request(
+            'PATCH',
+            f'/guilds/{guild_id}/mute',
+            json_body=_compact(user_ids=user_ids, mute_seconds=mute_seconds, mute_end_timestamp=mute_end_timestamp),
+        )
+        return MuteUsersResult.model_validate(data or {})
+
+    async def get_message_setting(self, guild_id: str) -> MessageSetting:
+        """获取频道消息频率设置（``GET /guilds/{guild_id}/message/setting``）。"""
+        data = await self._request('GET', f'/guilds/{guild_id}/message/setting')
+        return MessageSetting.model_validate(data or {})
 
     async def create_guild_announce(
         self,
@@ -1314,3 +1554,72 @@ class QQBotAPI:
     async def delete_schedule(self, channel_id: str, schedule_id: str) -> None:
         """删除日程（``DELETE /channels/{channel_id}/schedules/{schedule_id}``）。"""
         await self._request('DELETE', f'/channels/{channel_id}/schedules/{schedule_id}')
+
+    # ------------------------------------------------------------------
+    # 音频控制 / 论坛 / 消息频率设置
+    # ------------------------------------------------------------------
+
+    async def control_channel_audio(
+        self,
+        channel_id: str,
+        *,
+        status: int,
+        audio_url: str | None = None,
+        text: str | None = None,
+    ) -> None:
+        """音频控制（``POST /channels/{channel_id}/audio``，仅音频类机器人可用）。
+
+        Args:
+            status: 0 开始播放 / 1 暂停 / 2 继续 / 3 停止（见 ``AudioStatus``）。
+            audio_url: 音频数据 URL（``status=0`` 时传）。
+            text: 状态文本（``status=0`` 时传）。
+        """
+        await self._request(
+            'POST',
+            f'/channels/{channel_id}/audio',
+            json_body=_compact(audio_url=audio_url, text=text, status=status),
+        )
+
+    async def join_mic(self, channel_id: str) -> None:
+        """机器人上麦（``PUT /channels/{channel_id}/mic``，仅音频类机器人可用）。"""
+        await self._request('PUT', f'/channels/{channel_id}/mic')
+
+    async def leave_mic(self, channel_id: str) -> None:
+        """机器人下麦（``DELETE /channels/{channel_id}/mic``，仅音频类机器人可用）。"""
+        await self._request('DELETE', f'/channels/{channel_id}/mic')
+
+    async def get_threads(self, channel_id: str) -> ThreadList:
+        """获取帖子列表（``GET /channels/{channel_id}/threads``，仅私域机器人可用）。"""
+        data = await self._request('GET', f'/channels/{channel_id}/threads')
+        return ThreadList.model_validate(data or {})
+
+    async def get_thread(self, channel_id: str, thread_id: str) -> ThreadDetail:
+        """获取帖子详情（``GET /channels/{channel_id}/threads/{thread_id}``）。"""
+        data = await self._request('GET', f'/channels/{channel_id}/threads/{thread_id}')
+        return ThreadDetail.model_validate(data or {})
+
+    async def create_thread(
+        self,
+        channel_id: str,
+        *,
+        title: str,
+        content: str,
+        format: int = 1,
+    ) -> ThreadCreateResult:
+        """发表帖子（``PUT /channels/{channel_id}/threads``，仅私域机器人可用）。
+
+        Args:
+            title: 帖子标题。
+            content: 帖子内容。
+            format: 1 普通文本 / 2 HTML / 3 Markdown / 4 JSON（见 ``ThreadFormat``）。
+        """
+        data = await self._request(
+            'PUT',
+            f'/channels/{channel_id}/threads',
+            json_body=_compact(title=title, content=content, format=format),
+        )
+        return ThreadCreateResult.model_validate(data or {})
+
+    async def delete_thread(self, channel_id: str, thread_id: str) -> None:
+        """删除帖子（``DELETE /channels/{channel_id}/threads/{thread_id}``）。"""
+        await self._request('DELETE', f'/channels/{channel_id}/threads/{thread_id}')

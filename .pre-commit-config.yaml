@@ -1,0 +1,55 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-ast
+      - id: check-toml
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: end-of-file-fixer
+        exclude: '\.py$'
+      - id: trailing-whitespace
+        exclude: '\.py$'
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.10
+    hooks:
+      - id: ruff-check
+        args: ["--fix"]
+        files: ^(src|tests|tools)/
+      - id: ruff-format
+        files: ^(src|tests|tools)/
+
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.414
+    hooks:
+      - id: pyright
+        args: ["--level", "error"]
+        files: ^(src|tests|tools)/
+
+  - repo: https://github.com/econchick/interrogate
+    rev: 1.7.0
+    hooks:
+      - id: interrogate
+        files: ^src/
+
+  - repo: local
+    hooks:
+      - id: smoke
+        name: smoke test
+        entry: uv run python tests/smoke.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        types: [python]
+
+      # 防漂移：AGENT.md 与 .agents/ 为模板渲染产物，必须与模板保持一致。
+      # 检测到漂移时先运行 `uv run agent-kit update`，再重新提交。
+      - id: agent-kit-check
+        name: agent-kit drift check
+        entry: uv run agent-kit update --check
+        language: system
+        pass_filenames: false
+        always_run: true

@@ -1,11 +1,11 @@
-"""OpenAPI 响应对象：凭证、网关、消息回执、上传、权限、公告、表情、日程。"""
+"""OpenAPI 响应对象：凭证、网关、消息回执、上传、权限、公告、表情、日程、频道与论坛。"""
 
 from __future__ import annotations
 
 from pydantic import Field
 
 from .base import QQModel
-from .common import User
+from .common import GuildMember, User
 from .message import MessageExtInfo
 
 __all__ = [
@@ -14,21 +14,35 @@ __all__ = [
     'ApiPermission',
     'ApiPermissionDemand',
     'ApiPermissionList',
+    'AudioControl',
     'BotInfo',
+    'ChannelRolePermissions',
+    'ChannelUserPermissions',
     'FileUploadResponse',
+    'ForumThread',
     'Gateway',
     'GatewayBot',
     'MessageResponse',
+    'MessageSetting',
+    'MuteUsersResult',
+    'OnlineNums',
     'ReactionEmoji',
     'ReactionTarget',
     'ReactionUsers',
     'RecommendChannel',
+    'RoleMemberPage',
     'Schedule',
     'SessionStartLimit',
     'StreamMessageResponse',
+    'ThreadCreateResult',
+    'ThreadDetail',
+    'ThreadInfo',
+    'ThreadList',
     'UploadConfig',
     'UploadPart',
     'UploadPrepareResponse',
+    'UrlLinkData',
+    'UrlLinkResponse',
 ]
 
 
@@ -188,6 +202,108 @@ class Schedule(QQModel):
     description: str | None = Field(default=None, description='日程描述')
     start_timestamp: str | None = Field(default=None, description='开始时间戳（毫秒字符串）')
     end_timestamp: str | None = Field(default=None, description='结束时间戳（毫秒字符串）')
+
+
+class ChannelUserPermissions(QQModel):
+    """子频道用户权限（``GET /channels/{channel_id}/members/{user_id}/permissions``）。"""
+
+    channel_id: str | None = Field(default=None, description='子频道 ID')
+    user_id: str | None = Field(default=None, description='用户 ID')
+    permissions: str | None = Field(default=None, description='字符串形式的权限位图')
+
+
+class ChannelRolePermissions(QQModel):
+    """子频道身份组权限（``GET /channels/{channel_id}/roles/{role_id}/permissions``）。"""
+
+    channel_id: str | None = Field(default=None, description='子频道 ID')
+    role_id: str | None = Field(default=None, description='身份组 ID')
+    permissions: str | None = Field(default=None, description='字符串形式的权限位图')
+
+
+class OnlineNums(QQModel):
+    """子频道在线成员数（``GET /channels/{channel_id}/online_nums``）。"""
+
+    online_nums: int | None = Field(default=None, description='在线成员数')
+
+
+class RoleMemberPage(QQModel):
+    """身份组成员分页数据（``GET /guilds/{guild_id}/roles/{role_id}/members``）。"""
+
+    data: list[GuildMember] = Field(default_factory=list[GuildMember], description='成员列表')
+    next: str | None = Field(default=None, description='下一次请求的分页标识（start_index）')
+
+
+class MuteUsersResult(QQModel):
+    """批量禁言结果（``PATCH /guilds/{guild_id}/mute``）。"""
+
+    user_ids: list[str] = Field(default_factory=list[str], description='设置成功的成员 user_id 列表')
+
+
+class MessageSetting(QQModel):
+    """频道消息频率设置（``GET /guilds/{guild_id}/message/setting``）。"""
+
+    disable_create_dm: bool | None = Field(default=None, description='是否禁用创建私信')
+    disable_push_msg: bool | None = Field(default=None, description='是否禁用推送消息')
+    channel_ids: list[str] = Field(default_factory=list[str], description='设置过的子频道 ID 列表')
+    channel_push_max_num: int | None = Field(default=None, description='子频道推送上限')
+
+
+class AudioControl(QQModel):
+    """音频控制请求体（``POST /channels/{channel_id}/audio``）。"""
+
+    audio_url: str | None = Field(default=None, description='音频数据 URL（status=0 时传）')
+    text: str | None = Field(default=None, description='状态文本（status=0 时传）')
+    status: int = Field(description='0 开始 / 1 暂停 / 2 继续 / 3 停止，见 AudioStatus')
+
+
+class ThreadInfo(QQModel):
+    """帖子内容信息（论坛）。"""
+
+    thread_id: str | None = Field(default=None, description='帖子 ID')
+    title: str | None = Field(default=None, description='帖子标题')
+    content: str | None = Field(default=None, description='帖子内容（RichText 结构）')
+    date_time: str | None = Field(default=None, description='发帖时间（RFC3339）')
+
+
+class ForumThread(QQModel):
+    """论坛帖子对象（``GET /channels/{channel_id}/threads``）。"""
+
+    guild_id: str | None = Field(default=None, description='频道 ID')
+    channel_id: str | None = Field(default=None, description='子频道 ID')
+    author_id: str | None = Field(default=None, description='作者 ID')
+    thread_info: ThreadInfo | None = Field(default=None, description='帖子内容信息')
+
+
+class ThreadList(QQModel):
+    """帖子列表（``GET /channels/{channel_id}/threads``）。"""
+
+    threads: list[ForumThread] = Field(default_factory=list[ForumThread], description='帖子列表')
+    is_finish: int | None = Field(default=None, description='是否拉取完毕（0 否 / 1 是）')
+
+
+class ThreadDetail(QQModel):
+    """帖子详情（``GET /channels/{channel_id}/threads/{thread_id}``）。"""
+
+    thread: ForumThread | None = Field(default=None, description='帖子详情对象')
+
+
+class ThreadCreateResult(QQModel):
+    """发表帖子响应（``PUT /channels/{channel_id}/threads``）。"""
+
+    task_id: str | None = Field(default=None, description='帖子任务 ID')
+    create_time: str | None = Field(default=None, description='发帖时间戳（秒）')
+
+
+class UrlLinkData(QQModel):
+    """分享链接数据。"""
+
+    url: str | None = Field(default=None, description='生成的分享链接')
+
+
+class UrlLinkResponse(QQModel):
+    """生成分享链接响应（``POST /v2/generate_url_link``）。"""
+
+    data: UrlLinkData | None = Field(default=None, description='分享链接数据')
     creator: User | None = Field(default=None, description='创建者')
     jump_channel_id: str | None = Field(default=None, description='跳转子频道 ID')
     remind_type: str | None = Field(default=None, description='提醒类型')

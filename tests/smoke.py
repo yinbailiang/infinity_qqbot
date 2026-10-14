@@ -24,8 +24,8 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 
-from event_bus import Event, EventBus, EventHandler, EventHandlerRegistry, EventRegistry, Regex
-from event_bus.templates import InMemoryIdempotencyRecorder
+from infinity_bus import Event, EventBus, EventHandler, EventHandlerRegistry, EventRegistry, Regex
+from infinity_bus.templates import InMemoryIdempotencyRecorder
 from pydantic import BaseModel
 
 from infinity_qqbot import (
@@ -123,7 +123,7 @@ async def check_typed_rpc() -> None:
     api._request = fake_request  # type: ignore[method-assign]
 
     handlers = EventHandlerRegistry()
-    handlers.register(QQBotAPIHandler(api))
+    await handlers.register(QQBotAPIHandler(api))
 
     async with EventBus(registry, handlers) as bus:
         message = await send_c2c_message(
@@ -204,8 +204,8 @@ async def check_events() -> None:
     collector = Collector()
 
     handlers = EventHandlerRegistry()
-    handlers.register(collector)
-    register_handlers(  # ModuleHandlerRegister 批量注册入站 + RPC 处理器
+    await handlers.register(collector)
+    await register_handlers(  # ModuleHandlerRegister 批量注册入站 + RPC 处理器
         handlers,
         api,
         engine=engine,  # type: ignore[arg-type]

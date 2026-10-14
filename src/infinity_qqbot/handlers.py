@@ -11,7 +11,7 @@
 
 典型接线::
 
-    from event_bus import EventBus, EventHandlerRegistry, EventRegistry
+    from infinity_bus import EventBus, EventHandlerRegistry, EventRegistry
 
     from infinity_qqbot import qqbot_events, register_handlers, send_c2c_message
 
@@ -19,7 +19,7 @@
     qqbot_events.register_all_events(registry)   # 注册全部事件声明（网关事件 + RPC 事件）
 
     handlers = EventHandlerRegistry()
-    register_handlers(handlers, api)             # 入站发布 + 强类型 RPC 处理器
+    await register_handlers(handlers, api)       # 入站发布 + 强类型 RPC 处理器
 
     async with EventBus(registry, handlers) as bus:
         message = await send_c2c_message(
@@ -33,12 +33,13 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from event_bus import BusShuttingDown, Event, EventBus, EventHandler, EventHandlerRegistry, Regex
-from event_bus.templates import IdempotencyRecorder, ModuleHandlerRegister, expect
+from infinity_bus import BusShuttingDown, Event, EventBus, EventHandler, EventHandlerRegistry, Regex
+from infinity_bus.templates import IdempotencyRecorder, ModuleHandlerRegister, expect
 
 from .api import QQBotAPI
 from .engine import QQBot
@@ -99,7 +100,6 @@ class QQBotEventHandler(EventHandler):
         self._publish_unknown = publish_unknown
         self._dedup = dedup_recorder
         self._dedup_consumer = dedup_consumer
-        self._bus: EventBus | None = None
         self._task: asyncio.Task[None] | None = None
 
     # ------------------------------------------------------------------
@@ -120,21 +120,20 @@ class QQBotEventHandler(EventHandler):
     # 生命周期：随总线激活 / 注销
     # ------------------------------------------------------------------
 
-    def on_activate(self, bus: EventBus) -> None:
+    async def on_activate(self, bus: EventBus) -> None:
         """被注册表激活时启动事件泵（自动连接网关）。"""
-        super().on_activate(bus)
-        self._bus = bus
-        self._start_pump()
+        await super().on_activate(bus)
+        proxy = bus.proxy(f'{type(self).__name__}:gateway')
+        self._task = asyncio.create_task(self._pump(proxy), name='infinity_qqbot.event_pump')
 
-    def on_deactivate(self, bus: EventBus) -> None:
-        """被注销 / 总线停机时停止事件泵。"""
-        self._stop_pump()
-        self._bus = None
-        super().on_deactivate(bus)
+    async def on_deactivate(self, bus: EventBus) -> None:
+        """被注销 / 总线停机时停止事件泵（等待其收敛后撤销订阅）。"""
+        await self._stop_pump()
+        await super().on_deactivate(bus)
 
     async def aclose(self) -> None:
         """显式关闭事件泵并断开网关连接（用于手动管理生命周期）。"""
-        self._stop_pump()
+        await self._stop_pump()
         await self._engine.close()
 
     async def handle(
@@ -146,28 +145,23 @@ class QQBotEventHandler(EventHandler):
         """事件处理器入口。
 
         本处理器是纯事件生产者（订阅为空），该方法不会被总线调用；
-        保留实现仅为满足 :class:`~event_bus.EventHandler` 抽象协议。
+        保留实现仅为满足 :class:`~infinity_bus.EventHandler` 抽象协议。
         """
 
     # ------------------------------------------------------------------
     # 事件泵
     # ------------------------------------------------------------------
 
-    def _start_pump(self) -> None:
-        if self._task is None or self._task.done():
-            self._task = asyncio.create_task(self._pump(), name='infinity_qqbot.event_pump')
-
-    def _stop_pump(self) -> None:
+    async def _stop_pump(self) -> None:
+        """取消事件泵并等待其收敛（避免停机后残留野任务）。"""
         task, self._task = self._task, None
         if task is not None and not task.done():
             task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
 
-    async def _pump(self) -> None:
+    async def _pump(self, proxy: EventBus.Proxy) -> None:
         """持续消费网关事件并发布到总线。"""
-        bus = self._bus
-        if bus is None:
-            return
-        proxy = bus.proxy(f'{type(self).__name__}:gateway')
         try:
             async for event in self._engine.stream():
                 if not self._accept(event):
@@ -177,7 +171,7 @@ class QQBotEventHandler(EventHandler):
                     continue
                 if await self._is_duplicate(event):
                     continue
-                await self._publish(proxy, declaration.name, event.payload)
+                await proxy.publish(declaration.name, event.payload)
                 await self._mark_processed(event)
         except asyncio.CancelledError:
             raise
@@ -211,23 +205,8 @@ class QQBotEventHandler(EventHandler):
         if self._dedup is not None and event.event_id:
             await self._dedup.mark_processed(self._dedup_consumer, event.event_id)
 
-    @staticmethod
-    async def _publish(proxy: EventBus.Proxy, name: str, payload: Any) -> None:
-        """发布事件；总线尚未就绪时短暂重试（激活先于调度循环启动）。"""
-        for attempt in range(3):
-            try:
-                await proxy.publish(name, payload)
-                return
-            except BusShuttingDown:
-                raise
-            except RuntimeError as exc:
-                if attempt < 2 and 'not running' in str(exc):
-                    await asyncio.sleep(0.2)
-                    continue
-                raise
 
-
-def register_handlers(
+async def register_handlers(
     handler_registry: EventHandlerRegistry,
     api: QQBotAPI,
     *,
@@ -241,7 +220,8 @@ def register_handlers(
 ) -> None:
     """把 :class:`QQBotEventHandler` 与 :class:`QQBotAPIHandler` 批量注册到处理器注册表。
 
-    基于 ``event_bus.templates.ModuleHandlerRegister`` 模板实现，参数与
+    基于 ``infinity_bus.templates.ModuleHandlerRegister`` 模板实现（**异步**：自
+    infinity_bus 6.0.0 起 ``register_all_handlers`` 为协程），参数与
     :class:`QQBotEventHandler` 一致。
 
     Args:
@@ -270,7 +250,7 @@ def register_handlers(
         },
     )
     module_handlers.add_handler(QQBotAPIHandler, lambda: {'api': api})
-    module_handlers.register_all_handlers(handler_registry)
+    await module_handlers.register_all_handlers(handler_registry)
 
 
 async def wait_for_event(
@@ -289,7 +269,7 @@ async def wait_for_event(
         filter_func: 可选过滤器，返回 ``True`` 才视为匹配。
 
     Returns:
-        匹配到的原始 :class:`~event_bus.Event`。
+        匹配到的原始 :class:`~infinity_bus.Event`。
 
     示例（等待网关就绪）::
 

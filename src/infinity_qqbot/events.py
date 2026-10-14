@@ -1,13 +1,13 @@
 """QQBot 事件声明（嵌套 ``Payload`` 风格 + 装饰器注册）。
 
-每个事件声明直接继承 ``event_bus.EventDeclaration``，显式声明三件套：
+每个事件声明直接继承 ``infinity_bus.EventDeclaration``，显式声明三件套：
 
 - ``type_name``：QQ 平台事件名（网关 ``t`` 字段）；
 - ``name``：总线事件名（``qqbot.event.<type_name 小写>``）；
 - ``payload_type``：嵌套 ``Payload`` 负载类。
 
 并用库自带装饰器 ``@qqbot_events.event`` 登记到模块事件注册器
-（``event_bus.templates.ModuleEventRegister``），注册时直接调用
+（``infinity_bus.templates.ModuleEventRegister``），注册时直接调用
 ``qqbot_events.register_all_events(registry)``。
 
 示例::
@@ -27,12 +27,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from event_bus import EventDeclaration
-from event_bus.templates import ModuleEventRegister
+from infinity_bus import EventDeclaration
+from infinity_bus.templates import ModuleEventRegister
 from pydantic import BaseModel
 
 from .models import (
     AudioEventPayload,
+    AudioOrLiveChannelMemberEventPayload,
     ChannelEventPayload,
     ChannelMessageDeleteEventPayload,
     ChannelMessageEventPayload,
@@ -46,6 +47,7 @@ from .models import (
     InteractionEventPayload,
     MessageAuditEventPayload,
     MsgReceiveSwitchEventPayload,
+    OpenForumEventPayload,
     QQBotEventPayload,
     QQMessageEventPayload,
     ReactionEventPayload,
@@ -61,6 +63,8 @@ __all__ = [
     'AudioFinishEvent',
     'AudioOffMicEvent',
     'AudioOnMicEvent',
+    'AudioOrLiveChannelMemberEnterEvent',
+    'AudioOrLiveChannelMemberExitEvent',
     'AudioStartEvent',
     'C2CMessageCreateEvent',
     'C2CMsgReceiveEvent',
@@ -102,6 +106,13 @@ __all__ = [
     'MessageDeleteEvent',
     'MessageReactionAddEvent',
     'MessageReactionRemoveEvent',
+    'OpenForumPostCreateEvent',
+    'OpenForumPostDeleteEvent',
+    'OpenForumReplyCreateEvent',
+    'OpenForumReplyDeleteEvent',
+    'OpenForumThreadCreateEvent',
+    'OpenForumThreadDeleteEvent',
+    'OpenForumThreadUpdateEvent',
     'PublicMessageDeleteEvent',
     'ReadyEvent',
     'ResumedEvent',
@@ -730,6 +741,102 @@ class ForumPublishAuditResultEvent(EventDeclaration):
 
 
 # ======================================================================
+# 开放论坛（OPEN_FORUM_EVENT，仅私域）
+# ======================================================================
+
+
+@qqbot_events.event
+class OpenForumThreadCreateEvent(EventDeclaration):
+    """用户创建主题（OPEN_FORUM_THREAD_CREATE）。"""
+
+    type_name = 'OPEN_FORUM_THREAD_CREATE'
+    name = 'qqbot.event.open_forum_thread_create'
+
+    class Payload(OpenForumEventPayload):
+        """开放论坛事件负载。"""
+
+    payload_type = Payload
+
+
+@qqbot_events.event
+class OpenForumThreadUpdateEvent(EventDeclaration):
+    """用户更新主题（OPEN_FORUM_THREAD_UPDATE）。"""
+
+    type_name = 'OPEN_FORUM_THREAD_UPDATE'
+    name = 'qqbot.event.open_forum_thread_update'
+
+    class Payload(OpenForumEventPayload):
+        """开放论坛事件负载。"""
+
+    payload_type = Payload
+
+
+@qqbot_events.event
+class OpenForumThreadDeleteEvent(EventDeclaration):
+    """用户删除主题（OPEN_FORUM_THREAD_DELETE）。"""
+
+    type_name = 'OPEN_FORUM_THREAD_DELETE'
+    name = 'qqbot.event.open_forum_thread_delete'
+
+    class Payload(OpenForumEventPayload):
+        """开放论坛事件负载。"""
+
+    payload_type = Payload
+
+
+@qqbot_events.event
+class OpenForumPostCreateEvent(EventDeclaration):
+    """用户创建帖子（OPEN_FORUM_POST_CREATE）。"""
+
+    type_name = 'OPEN_FORUM_POST_CREATE'
+    name = 'qqbot.event.open_forum_post_create'
+
+    class Payload(OpenForumEventPayload):
+        """开放论坛事件负载。"""
+
+    payload_type = Payload
+
+
+@qqbot_events.event
+class OpenForumPostDeleteEvent(EventDeclaration):
+    """用户删除帖子（OPEN_FORUM_POST_DELETE）。"""
+
+    type_name = 'OPEN_FORUM_POST_DELETE'
+    name = 'qqbot.event.open_forum_post_delete'
+
+    class Payload(OpenForumEventPayload):
+        """开放论坛事件负载。"""
+
+    payload_type = Payload
+
+
+@qqbot_events.event
+class OpenForumReplyCreateEvent(EventDeclaration):
+    """用户回复评论（OPEN_FORUM_REPLY_CREATE）。"""
+
+    type_name = 'OPEN_FORUM_REPLY_CREATE'
+    name = 'qqbot.event.open_forum_reply_create'
+
+    class Payload(OpenForumEventPayload):
+        """开放论坛事件负载。"""
+
+    payload_type = Payload
+
+
+@qqbot_events.event
+class OpenForumReplyDeleteEvent(EventDeclaration):
+    """用户删除评论（OPEN_FORUM_REPLY_DELETE）。"""
+
+    type_name = 'OPEN_FORUM_REPLY_DELETE'
+    name = 'qqbot.event.open_forum_reply_delete'
+
+    class Payload(OpenForumEventPayload):
+        """开放论坛事件负载。"""
+
+    payload_type = Payload
+
+
+# ======================================================================
 # 音频
 # ======================================================================
 
@@ -782,6 +889,32 @@ class AudioOffMicEvent(EventDeclaration):
 
     class Payload(AudioEventPayload):
         """音频事件负载。"""
+
+    payload_type = Payload
+
+
+@qqbot_events.event
+class AudioOrLiveChannelMemberEnterEvent(EventDeclaration):
+    """用户进入音视频/直播子频道（AUDIO_OR_LIVE_CHANNEL_MEMBER_ENTER）。"""
+
+    type_name = 'AUDIO_OR_LIVE_CHANNEL_MEMBER_ENTER'
+    name = 'qqbot.event.audio_or_live_channel_member_enter'
+
+    class Payload(AudioOrLiveChannelMemberEventPayload):
+        """音视频/直播子频道成员事件负载。"""
+
+    payload_type = Payload
+
+
+@qqbot_events.event
+class AudioOrLiveChannelMemberExitEvent(EventDeclaration):
+    """用户离开音视频/直播子频道（AUDIO_OR_LIVE_CHANNEL_MEMBER_EXIT）。"""
+
+    type_name = 'AUDIO_OR_LIVE_CHANNEL_MEMBER_EXIT'
+    name = 'qqbot.event.audio_or_live_channel_member_exit'
+
+    class Payload(AudioOrLiveChannelMemberEventPayload):
+        """音视频/直播子频道成员事件负载。"""
 
     payload_type = Payload
 

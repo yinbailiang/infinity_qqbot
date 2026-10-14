@@ -1,14 +1,15 @@
 # infinity-qqbot
 
-基于 [infinity_bus(EventBus)](https://github.com/yinbailiang/event_bus) 的 QQ 机器人引擎。
+基于 [infinity_bus](https://github.com/yinbailiang/infinity_bus) 的 QQ 机器人引擎。
 
 - **`QQBotAPI`**：使用 `aiohttp` + `certifi` 完整封装 QQ 机器人开放平台 v2 接口
-  （消息收发、富媒体上传、群管理、频道管理、互动回调、菜单面板等）；
+  （消息收发、富媒体上传、群管理、频道管理（子频道权限、禁言、论坛、音频等）、
+  互动回调、菜单面板等；HTTP 429 自动退避重试、201/202 异步受理语义）；
 - **`QQBotGateway` / `QQBot`**：WebSocket 网关客户端（心跳、Identify/Resume、
   自动重连、断线补发），输出类型化事件流；
 - **`QQBotEventHandler`**：接受 `QQBotAPI`，随总线激活自动连接网关，
   并把每个事件自动发布为 `qqbot.event.<type>`（如 `qqbot.event.group_at_message_create`）；
-- **`QQBotAPIHandler` + 强类型客户端**：集成 `ServiceHandler`，80 个 API 方法逐一暴露为
+- **`QQBotAPIHandler` + 强类型客户端**：集成 `ServiceHandler`，95 个 API 方法逐一暴露为
   总线 RPC（请求 / 响应模型、事件声明、客户端函数由 `tools/gen_rpc.py` 从规格生成，
   运行期零元编程），调用 `await send_c2c_message(...)` 即完成一次强类型 RPC；
 - 数据模型按域拆分在 `models/` 包；事件声明采用嵌套 `Payload` 风格，全部由 Pydantic 校验。
@@ -24,7 +25,7 @@ uv sync
 ```python
 import asyncio
 
-from event_bus import EventBus, EventHandler, EventHandlerRegistry, EventRegistry, Regex
+from infinity_bus import EventBus, EventHandler, EventHandlerRegistry, EventRegistry, Regex
 
 from infinity_qqbot import (
     QQBotAPI,
@@ -56,8 +57,8 @@ async def main() -> None:
     qqbot_events.register_all_events(registry)  # 注册全部事件声明（ModuleEventRegister）
 
     handlers = EventHandlerRegistry()
-    handlers.register(Echo())
-    register_handlers(handlers, api)  # 入站：网关事件 -> 总线；出站：总线 RPC -> OpenAPI
+    await handlers.register(Echo())
+    await register_handlers(handlers, api)  # 入站：网关事件 -> 总线；出站：总线 RPC -> OpenAPI
 
     async with EventBus(registry, handlers):
         await asyncio.Event().wait()  # 常驻运行
@@ -77,7 +78,7 @@ asyncio.run(main())
 | `AT_MESSAGE_CREATE` | `qqbot.event.at_message_create` | `MessageCreateEvent` 系列 |
 | `INTERACTION_CREATE` | `qqbot.event.interaction_create` | `InteractionCreateEvent` |
 | `GROUP_ADD_ROBOT` | `qqbot.event.group_add_robot` | `GroupAddRobotEvent` |
-| …（共 50+ 个平台事件） | | |
+| …（共 58 个平台事件） | | |
 
 订阅方式二选一：
 
@@ -107,7 +108,7 @@ message = await send_group_message(
 print(message.id)  # MessageResponse（类型由客户端签名给出）
 ```
 
-- 客户端底层**直接使用** `event_bus.templates.request` 模板，自动以
+- 客户端底层**直接使用** `infinity_bus.templates.request` 模板，自动以
   `session_id + request_id` 关联请求与响应；
 - 事件名：`qqbot.api.<method>.request` / `qqbot.api.<method>.response`，
   可直接订阅任意方法的请求 / 响应事件；
@@ -123,21 +124,21 @@ print(message.id)  # MessageResponse（类型由客户端签名给出）
 链路：客户端 → `request()` 模板 → `qqbot.api.<method>.request`
 → `QQBotAPIHandler.<method>` → `QQBotAPI.<method>` → `qqbot.api.<method>.response`。
 
-## 模板能力（event_bus.templates）
+## 模板能力（infinity_bus.templates）
 
-本项目尽可能复用了 `event_bus` 的模板能力，业务侧也可直接使用：
+本项目尽可能复用了 `infinity_bus` 的模板能力，业务侧也可直接使用：
 
-- **批量处理器注册**：`register_handlers(handlers, api)` 基于 `ModuleHandlerRegister`
+- **批量处理器注册**：`await register_handlers(handlers, api)` 基于 `ModuleHandlerRegister`
   一次性注册入站 / 出站处理器；
 - **幂等去重**：QQ 可能重复推送同一事件，注入 `IdempotencyRecorder` 即可按事件 ID 去重
   （发布成功才记录）：
 
   ```python
-  from event_bus.templates import InMemoryIdempotencyRecorder
+  from infinity_bus.templates import InMemoryIdempotencyRecorder
 
   from infinity_qqbot import register_handlers
 
-  register_handlers(
+  await register_handlers(
       handlers,
       api,
       dedup_recorder=InMemoryIdempotencyRecorder(),  # 或 SqliteIdempotencyRecorder('bot.db')
@@ -152,25 +153,25 @@ print(message.id)  # MessageResponse（类型由客户端签名给出）
   await wait_for_event(bus.proxy('app'), ReadyEvent.name, timeout=30)
   ```
 
-- **中间件**：`event_bus.templates.middlewares` 提供的日志（JSONL / SQLite）、限流、
+- **中间件**：`infinity_bus.templates.middlewares` 提供的日志（JSONL / SQLite）、限流、
   递归防护、事件转换等中间件可直接挂到总线：
 
   ```python
-  from event_bus.templates import RecursionGuardMiddleware
+  from infinity_bus.templates import RecursionGuardMiddleware
 
   await bus.proxy('app').middleware.add(RecursionGuardMiddleware())
   ```
 
-- **简化处理器**：`event_bus.templates.handler` 可把普通异步函数直接包装为处理器类：
+- **简化处理器**：`infinity_bus.templates.handler` 可把普通异步函数直接包装为处理器类：
 
   ```python
-  from event_bus.templates import handler
+  from infinity_bus.templates import handler
 
   @handler(C2CMessageCreateEvent)
   async def echo(payload: C2CMessageCreateEvent.Payload) -> None:
       ...
 
-  handlers.register(echo())
+  await handlers.register(echo())
   ```
 
 - **其他模板**：`expect` / `temporary_handler` / `pipe` / `request` 等均可按需组合
@@ -212,17 +213,26 @@ async with QQBot(QQBotAPI(app_id, secret)) as bot:
 ## 开发
 
 ```bash
-uv sync
+uv sync --extra dev             # 安装开发依赖（ruff / pyright / interrogate / pre-commit / agent-kit）
+uv run pre-commit install       # 挂载提交钩子（一次性）
 
 uv run python tools/gen_rpc.py  # 生成 RPC 模型 / 事件 / 客户端 / 处理器
-uv run ruff check src tests     # 静态检查
-uv run ruff format src tests    # 代码格式化
+uv run ruff check . --fix       # 静态检查（含 RUF022：`__all__` 自动排序）
+uv run ruff format .            # 代码格式化
+uv run pyright                  # 类型检查（strict 模式，零错误门禁）
+uv run python tests/smoke.py    # 冒烟测试（不联网：事件收集 / token 缓存 / 强类型 RPC / 去重）
 
-python tests/smoke.py           # 冒烟测试（不联网：事件收集 / token 缓存 / 强类型 RPC / 去重）
+uv run pre-commit run --all-files   # 全量质量门（lint / 格式化 / pyright / docstring 覆盖 / 冒烟 / 规则防漂移）
 ```
 
-Ruff 配置见 `pyproject.toml`：`select = ["E", "W", "F", "I", "RUF"]`，
-其中 `RUF022` 负责 `__all__` 的自动排序（`uv run ruff check --fix src tests` 直接修复）。
+- **质量门**（`.pre-commit-config.yaml`）：ruff、pyright（strict）、interrogate（docstring ≥ 90%）、
+  冒烟测试、agent-kit 漂移检查；CI（`.github/workflows/test.yml`）在三平台复跑同一把门；
+  推送 `v*` 标签触发 `publish.yml` 构建并发布（PyPI Trusted Publisher）。
+- **智能体规则**（`AGENT.md` + `.agents/`）：由 [agent-kit](https://pypi.org/project/infinity-agent-kit/)
+  统一同步（`uv run agent-kit update`），提交前检查见 `.agents/SKILLS/pre-commit-check.md`。
+
+Ruff 配置见 `pyproject.toml`：`select = ["B", "C4", "E", "F", "I", "RUF", "SIM", "UP", "W"]`，
+其中 `RUF022` 负责 `__all__` 的自动排序（`uv run ruff check --fix .` 直接修复）。
 
 ## 目录结构
 
@@ -244,3 +254,11 @@ tests/
 └── smoke.py        # 冒烟测试
 ```
 
+工程化资产（家族标准，见 `AGENT.md` 与 `.agents/`）：
+
+```text
+AGENT.md                    # 智能体引导入口（agent-kit 渲染）
+.agents/                    # 智能体静态规则（SKILLS / MEMORY / TEMP_FILES）
+.github/workflows/          # CI/CD：test.yml（质量门 + 冒烟矩阵）、publish.yml（v* 标签发布）
+.pre-commit-config.yaml     # 本地质量门（ruff / pyright / interrogate / 冒烟 / 规则防漂移）
+```

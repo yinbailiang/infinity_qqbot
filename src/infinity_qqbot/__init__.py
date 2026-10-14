@@ -1,4 +1,4 @@
-"""infinity_qqbot —— 基于 infinity_bus（``event_bus``）的强类型 QQ 机器人引擎。
+"""infinity_qqbot —— 基于 ``infinity_bus`` 的强类型 QQ 机器人引擎。
 
 模块结构：
 
@@ -16,7 +16,7 @@
 
     import asyncio
 
-    from event_bus import EventBus, EventHandlerRegistry, EventRegistry
+    from infinity_bus import EventBus, EventHandlerRegistry, EventRegistry
 
     from infinity_qqbot import (
         QQBotAPI,

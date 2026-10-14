@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from event_bus import Event, EventBus
-from event_bus.templates import ServiceHandler, process
+from infinity_bus import Event, EventBus
+from infinity_bus.templates import ServiceHandler, process
 
 from ...api import QQBotAPI
 from ..channels import (
@@ -24,6 +24,9 @@ from ..channels import (
     AddRoleMemberRequest,
     AddRoleMemberRequestEvent,
     AddRoleMemberResponseEvent,
+    ControlChannelAudioRequest,
+    ControlChannelAudioRequestEvent,
+    ControlChannelAudioResponseEvent,
     CreateApiPermissionDemandRequest,
     CreateApiPermissionDemandRequestEvent,
     CreateApiPermissionDemandResponseEvent,
@@ -45,6 +48,9 @@ from ..channels import (
     CreateScheduleRequest,
     CreateScheduleRequestEvent,
     CreateScheduleResponseEvent,
+    CreateThreadRequest,
+    CreateThreadRequestEvent,
+    CreateThreadResponseEvent,
     DeleteChannelAnnounceRequest,
     DeleteChannelAnnounceRequestEvent,
     DeleteChannelAnnounceResponseEvent,
@@ -66,15 +72,27 @@ from ..channels import (
     DeleteScheduleRequest,
     DeleteScheduleRequestEvent,
     DeleteScheduleResponseEvent,
+    DeleteThreadRequest,
+    DeleteThreadRequestEvent,
+    DeleteThreadResponseEvent,
     GetApiPermissionRequest,
     GetApiPermissionRequestEvent,
     GetApiPermissionResponseEvent,
     GetChannelMessageRequest,
     GetChannelMessageRequestEvent,
     GetChannelMessageResponseEvent,
+    GetChannelOnlineNumsRequest,
+    GetChannelOnlineNumsRequestEvent,
+    GetChannelOnlineNumsResponseEvent,
     GetChannelRequest,
     GetChannelRequestEvent,
     GetChannelResponseEvent,
+    GetChannelRolePermissionsRequest,
+    GetChannelRolePermissionsRequestEvent,
+    GetChannelRolePermissionsResponseEvent,
+    GetChannelUserPermissionsRequest,
+    GetChannelUserPermissionsRequestEvent,
+    GetChannelUserPermissionsResponseEvent,
     GetGuildChannelsRequest,
     GetGuildChannelsRequestEvent,
     GetGuildChannelsResponseEvent,
@@ -90,21 +108,42 @@ from ..channels import (
     GetGuildRolesRequest,
     GetGuildRolesRequestEvent,
     GetGuildRolesResponseEvent,
+    GetMessageSettingRequest,
+    GetMessageSettingRequestEvent,
+    GetMessageSettingResponseEvent,
     GetPinsRequest,
     GetPinsRequestEvent,
     GetPinsResponseEvent,
     GetReactionsRequest,
     GetReactionsRequestEvent,
     GetReactionsResponseEvent,
+    GetRoleMembersRequest,
+    GetRoleMembersRequestEvent,
+    GetRoleMembersResponseEvent,
     GetScheduleRequest,
     GetScheduleRequestEvent,
     GetScheduleResponseEvent,
     GetSchedulesRequest,
     GetSchedulesRequestEvent,
     GetSchedulesResponseEvent,
+    GetThreadRequest,
+    GetThreadRequestEvent,
+    GetThreadResponseEvent,
+    GetThreadsRequest,
+    GetThreadsRequestEvent,
+    GetThreadsResponseEvent,
+    JoinMicRequest,
+    JoinMicRequestEvent,
+    JoinMicResponseEvent,
+    LeaveMicRequest,
+    LeaveMicRequestEvent,
+    LeaveMicResponseEvent,
     MuteGuildMemberRequest,
     MuteGuildMemberRequestEvent,
     MuteGuildMemberResponseEvent,
+    MuteGuildMultiMembersRequest,
+    MuteGuildMultiMembersRequestEvent,
+    MuteGuildMultiMembersResponseEvent,
     MuteGuildRequest,
     MuteGuildRequestEvent,
     MuteGuildResponseEvent,
@@ -129,6 +168,12 @@ from ..channels import (
     UpdateChannelRequest,
     UpdateChannelRequestEvent,
     UpdateChannelResponseEvent,
+    UpdateChannelRolePermissionsRequest,
+    UpdateChannelRolePermissionsRequestEvent,
+    UpdateChannelRolePermissionsResponseEvent,
+    UpdateChannelUserPermissionsRequest,
+    UpdateChannelUserPermissionsRequestEvent,
+    UpdateChannelUserPermissionsResponseEvent,
     UpdateGuildRoleRequest,
     UpdateGuildRoleRequestEvent,
     UpdateGuildRoleResponseEvent,
@@ -365,6 +410,35 @@ class ChannelHandlersMixin(ServiceHandler):
         )
         return {'result': result}
 
+    @process(GetRoleMembersRequestEvent, GetRoleMembersResponseEvent)
+    async def get_role_members(
+        self,
+        payload: GetRoleMembersRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """获取身份组成员列表。"""
+        result = await self._api.get_role_members(
+            guild_id=payload.guild_id,
+            role_id=payload.role_id,
+            start_index=payload.start_index,
+            limit=payload.limit,
+        )
+        return {'result': result}
+
+    @process(GetChannelOnlineNumsRequestEvent, GetChannelOnlineNumsResponseEvent)
+    async def get_channel_online_nums(
+        self,
+        payload: GetChannelOnlineNumsRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """获取子频道在线成员数。"""
+        result = await self._api.get_channel_online_nums(
+            channel_id=payload.channel_id,
+        )
+        return {'result': result}
+
     @process(RemoveGuildMemberRequestEvent, RemoveGuildMemberResponseEvent)
     async def remove_guild_member(
         self,
@@ -476,6 +550,66 @@ class ChannelHandlersMixin(ServiceHandler):
         )
         return {'result': None}
 
+    @process(GetChannelUserPermissionsRequestEvent, GetChannelUserPermissionsResponseEvent)
+    async def get_channel_user_permissions(
+        self,
+        payload: GetChannelUserPermissionsRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """获取子频道用户权限。"""
+        result = await self._api.get_channel_user_permissions(
+            channel_id=payload.channel_id,
+            user_id=payload.user_id,
+        )
+        return {'result': result}
+
+    @process(UpdateChannelUserPermissionsRequestEvent, UpdateChannelUserPermissionsResponseEvent)
+    async def update_channel_user_permissions(
+        self,
+        payload: UpdateChannelUserPermissionsRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """修改子频道用户权限。"""
+        await self._api.update_channel_user_permissions(
+            channel_id=payload.channel_id,
+            user_id=payload.user_id,
+            add=payload.add,
+            remove=payload.remove,
+        )
+        return {'result': None}
+
+    @process(GetChannelRolePermissionsRequestEvent, GetChannelRolePermissionsResponseEvent)
+    async def get_channel_role_permissions(
+        self,
+        payload: GetChannelRolePermissionsRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """获取子频道身份组权限。"""
+        result = await self._api.get_channel_role_permissions(
+            channel_id=payload.channel_id,
+            role_id=payload.role_id,
+        )
+        return {'result': result}
+
+    @process(UpdateChannelRolePermissionsRequestEvent, UpdateChannelRolePermissionsResponseEvent)
+    async def update_channel_role_permissions(
+        self,
+        payload: UpdateChannelRolePermissionsRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """修改子频道身份组权限。"""
+        await self._api.update_channel_role_permissions(
+            channel_id=payload.channel_id,
+            role_id=payload.role_id,
+            add=payload.add,
+            remove=payload.remove,
+        )
+        return {'result': None}
+
     @process(MuteGuildRequestEvent, MuteGuildResponseEvent)
     async def mute_guild(
         self,
@@ -506,6 +640,35 @@ class ChannelHandlersMixin(ServiceHandler):
             mute_end_timestamp=payload.mute_end_timestamp,
         )
         return {'result': None}
+
+    @process(MuteGuildMultiMembersRequestEvent, MuteGuildMultiMembersResponseEvent)
+    async def mute_guild_multi_members(
+        self,
+        payload: MuteGuildMultiMembersRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """频道批量成员禁言。"""
+        result = await self._api.mute_guild_multi_members(
+            guild_id=payload.guild_id,
+            user_ids=payload.user_ids,
+            mute_seconds=payload.mute_seconds,
+            mute_end_timestamp=payload.mute_end_timestamp,
+        )
+        return {'result': result}
+
+    @process(GetMessageSettingRequestEvent, GetMessageSettingResponseEvent)
+    async def get_message_setting(
+        self,
+        payload: GetMessageSettingRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """获取频道消息频率设置。"""
+        result = await self._api.get_message_setting(
+            guild_id=payload.guild_id,
+        )
+        return {'result': result}
 
     @process(CreateGuildAnnounceRequestEvent, CreateGuildAnnounceResponseEvent)
     async def create_guild_announce(
@@ -753,5 +916,104 @@ class ChannelHandlersMixin(ServiceHandler):
         await self._api.delete_schedule(
             channel_id=payload.channel_id,
             schedule_id=payload.schedule_id,
+        )
+        return {'result': None}
+
+    @process(ControlChannelAudioRequestEvent, ControlChannelAudioResponseEvent)
+    async def control_channel_audio(
+        self,
+        payload: ControlChannelAudioRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """音频控制。"""
+        await self._api.control_channel_audio(
+            channel_id=payload.channel_id,
+            status=payload.status,
+            audio_url=payload.audio_url,
+            text=payload.text,
+        )
+        return {'result': None}
+
+    @process(JoinMicRequestEvent, JoinMicResponseEvent)
+    async def join_mic(
+        self,
+        payload: JoinMicRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """机器人上麦。"""
+        await self._api.join_mic(
+            channel_id=payload.channel_id,
+        )
+        return {'result': None}
+
+    @process(LeaveMicRequestEvent, LeaveMicResponseEvent)
+    async def leave_mic(
+        self,
+        payload: LeaveMicRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """机器人下麦。"""
+        await self._api.leave_mic(
+            channel_id=payload.channel_id,
+        )
+        return {'result': None}
+
+    @process(GetThreadsRequestEvent, GetThreadsResponseEvent)
+    async def get_threads(
+        self,
+        payload: GetThreadsRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """获取帖子列表。"""
+        result = await self._api.get_threads(
+            channel_id=payload.channel_id,
+        )
+        return {'result': result}
+
+    @process(GetThreadRequestEvent, GetThreadResponseEvent)
+    async def get_thread(
+        self,
+        payload: GetThreadRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """获取帖子详情。"""
+        result = await self._api.get_thread(
+            channel_id=payload.channel_id,
+            thread_id=payload.thread_id,
+        )
+        return {'result': result}
+
+    @process(CreateThreadRequestEvent, CreateThreadResponseEvent)
+    async def create_thread(
+        self,
+        payload: CreateThreadRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """发表帖子。"""
+        result = await self._api.create_thread(
+            channel_id=payload.channel_id,
+            title=payload.title,
+            content=payload.content,
+            format=payload.format,
+        )
+        return {'result': result}
+
+    @process(DeleteThreadRequestEvent, DeleteThreadResponseEvent)
+    async def delete_thread(
+        self,
+        payload: DeleteThreadRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """删除帖子。"""
+        await self._api.delete_thread(
+            channel_id=payload.channel_id,
+            thread_id=payload.thread_id,
         )
         return {'result': None}

@@ -1,20 +1,57 @@
 [project]
 name = "infinity-qqbot"
 version = "0.1.0"
-description = "Add your description here"
+description = "基于 infinity_bus 事件总线的强类型 QQ 机器人引擎（aiohttp 网关 + 强类型 RPC）"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE.md"]
+authors = [
+    { name = "infinity_system: yin_bailiang" },
+]
+keywords = [
+    "qqbot",
+    "qq-bot",
+    "event-bus",
+    "asyncio",
+    "websocket",
+    "pydantic",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
 requires-python = ">=3.14"
 dependencies = [
     "aiohttp>=3.14.4",
     "certifi>=2026.7.22",
-    "infinity-bus[templates]>=4.1.0",
+    "infinity-bus[templates]>=6.0.0",
     "infinity-parse>=0.1.2",
 ]
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
-    "ruff>=0.16.10",
+    "infinity-agent-kit>=1.0.0",
+    "interrogate",
+    "pre-commit",
+    "pyright",
+    "ruff",
 ]
+
+[project.urls]
+Homepage = "https://github.com/yinbailiang/infinity_qqbot"
+Repository = "https://github.com/yinbailiang/infinity_qqbot"
+Issues = "https://github.com/yinbailiang/infinity_qqbot/issues"
+Changelog = "https://github.com/yinbailiang/infinity_qqbot/releases"
+
+[build-system]
+requires = ["uv_build>=0.11.21,<0.12.0"]
+build-backend = "uv_build"
 
 [tool.ruff]
 target-version = "py314"
@@ -24,11 +61,15 @@ extend-exclude = [".venv"]
 
 [tool.ruff.lint]
 select = [
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
     "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
     "F",   # pyflakes
     "I",   # isort（导入排序）
     "RUF", # ruff 专属规则（含 RUF022：`__all__` 排序）
+    "SIM", # flake8-simplify
+    "UP",  # pyupgrade
+    "W",   # pycodestyle warnings
 ]
 ignore = [
     "RUF001", # 中文注释 / 文档中的全角标点误报
@@ -47,3 +88,28 @@ known-first-party = ["infinity_qqbot"]
 
 [tool.ruff.format]
 quote-style = "single"
+
+[tool.pyright]
+typeCheckingMode = "strict"
+pythonVersion = "3.14"
+venvPath = "."
+venv = ".venv"
+
+[tool.interrogate]
+fail-under = 90
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = true
+ignore-private = true
+ignore-semiprivate = true
+ignore-nested-functions = true
+exclude = ["tests", "tools"]
+
+[tool.uv.build-backend]
+module-root = "src"
+module-name = "infinity_qqbot"
+
+[tool.uv.workspace]
+members = [
+    "example/test",
+]

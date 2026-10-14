@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from event_bus.templates import ServiceHandler
+from infinity_bus.templates import ServiceHandler
 
 from ...api import QQBotAPI
 from .channels import ChannelHandlersMixin

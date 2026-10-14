@@ -1,0 +1,25 @@
+# agent_kit 项目配置（由 agent-kit 生成；可手工微调，改动在下次 update 时生效）
+kit_version = 1
+
+[project]
+name = "infinity-qqbot"
+summary = "基于 infinity_bus 事件总线的强类型 QQ 机器人引擎（aiohttp 网关 + 强类型 RPC）"
+package = "infinity_qqbot"
+src_dir = "src/infinity_qqbot"
+repo_url = "https://github.com/yinbailiang/infinity_qqbot"
+pypi_name = "infinity-qqbot"
+extra_sources = [
+  "tools/gen_rpc.py :: RPC 代码生成器（方法规格与模板的单一源头）",
+  "tests/smoke.py :: 冒烟测试（不联网验证核心链路）",
+]
+
+[toolchain]
+setup = "uv sync --extra dev && uv run pre-commit install"
+lint = "uv run ruff check ."
+format = "uv run ruff format ."
+typecheck = "uv run pyright"
+test = "uv run python tests/smoke.py"
+extras = []
+
+[skills]
+enabled = ["modify-core-api", "pre-commit-check", "write-tests", "write-docs", "write-skill", "init-project", "setup-cicd", "publish"]

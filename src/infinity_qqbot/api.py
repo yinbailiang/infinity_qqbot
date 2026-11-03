@@ -31,7 +31,7 @@ import ssl
 import time
 from collections.abc import Sequence
 from enum import Enum
-from typing import Any, cast
+from typing import Any, Self, cast
 
 import aiohttp
 import certifi
@@ -265,7 +265,7 @@ class QQBotAPI:
         if self._session is not None and self._owns_session and not self._session.closed:
             await self._session.close()
 
-    async def __aenter__(self) -> QQBotAPI:
+    async def __aenter__(self) -> Self:
         await self.ensure_session()
         return self
 

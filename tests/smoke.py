@@ -37,23 +37,34 @@ from infinity_qqbot import (
     FriendAddEvent,
     FriendEventPayload,
     GroupAddRobotEvent,
+    GroupAtMessageCreateEvent,
+    GroupBotState,
     GroupDelRobotEvent,
+    GroupInfo,
     GroupMemberAddEvent,
     GroupMemberEventPayload,
     GroupMemberRemoveEvent,
     GroupMsgReceiveEvent,
     GroupRobotEventPayload,
+    JoinRequest,
+    MediaImagePage,
+    MessageCard,
+    MessageCardContent,
     MessageResponse,
     MsgReceiveSwitchEventPayload,
+    ParallelMessage,
     QQBotAPI,
     QQBotAPIError,
     QQBotAPIHandler,
     QQBotEvent,
+    RestrictChatSetting,
     SendC2CMessageRequest,
     SendC2CMessageRequestEvent,
     SendC2CMessageResponseEvent,
+    SendGroupMessageRequest,
     UnknownEvent,
     UnknownEventPayload,
+    UserInfo,
     qqbot_events,
     register_handlers,
     resolve_event,
@@ -123,6 +134,226 @@ def check_management_event_payloads() -> None:
         ), type_name
         assert payload.timestamp == timestamp, type_name
     print('[ok] 管理类事件整数时间戳（Unix 秒）解析')
+
+
+def check_group_message_payload_fields() -> None:
+    """群聊消息新增字段：member_nickname / group_id / parallel_message。"""
+    legacy: dict[str, Any] = {
+        'id': 'm-old',
+        'author': {'id': 'member-1', 'username': '示例昵称', 'member_openid': 'member-1', 'member_role': 'owner'},
+        'content': '你好～',
+        'timestamp': '2026-10-16T23:47:16+08:00',
+        'message_type': 0,
+        'group_openid': 'group-1',
+    }
+    _, payload = resolve_event('GROUP_AT_MESSAGE_CREATE', legacy)
+    assert isinstance(payload, GroupAtMessageCreateEvent.Payload)
+    assert payload.author is not None and payload.author.member_nickname is None
+    assert payload.group_id is None and payload.parallel_message is None
+
+    plain: dict[str, Any] = {
+        **legacy,
+        'id': 'm-plain',
+        'author': {
+            'id': 'member-1',
+            'username': '示例昵称',
+            'avatar': None,
+            'bot': False,
+            'union_openid': '',
+            'member_openid': 'member-1',
+            'member_role': 'admin',
+            'member_nickname': '示例昵称',
+        },
+        'timestamp': '2026-11-20T22:33:23+08:00',
+        'message_scene': {'source': 'default', 'ext': ['msg_idx=idx-1', 'auth_token=token']},
+        'group_id': 'group-1',
+        'union_group_openid': 'union-group-1',
+        'mentions': [
+            {'id': 'member-2', 'username': '小明', 'member_openid': 'member-2', 'is_you': False, 'scope': 'single'}
+        ],
+    }
+    _, payload = resolve_event('GROUP_AT_MESSAGE_CREATE', plain)
+    assert isinstance(payload, GroupAtMessageCreateEvent.Payload)
+    assert payload.author is not None
+    assert payload.author.member_nickname == '示例昵称' and payload.author.member_role == 'admin'
+    assert payload.group_id == payload.group_openid == 'group-1'
+    assert payload.union_group_openid == 'union-group-1'
+    assert payload.mentions[0].is_you is False and payload.mentions[0].scope == 'single'
+    assert payload.parallel_message is None
+
+    quoted: dict[str, Any] = {
+        **plain,
+        'id': 'm-quoted',
+        'content': '我喜欢你',
+        'timestamp': '2026-11-20T22:51:43+08:00',
+        'message_type': 103,
+        'message_scene': {'source': 'default', 'ext': ['ref_msg_idx=ref-1', 'msg_idx=idx-2', 'auth_token=token']},
+        'msg_elements': [
+            {
+                'msg_idx': 'ref-1',
+                'author': None,
+                'message_type': 103,
+                'content': '被引用的机器人回复内容',
+                'attachments': [],
+                'ark_data': None,
+                'msg_elements': [],
+            }
+        ],
+        'parallel_message': {'msg_nodes': [{'content': '@示例昵称 被引用的机器人回复内容', 'message_type': 0}]},
+    }
+    _, payload = resolve_event('GROUP_AT_MESSAGE_CREATE', quoted)
+    assert isinstance(payload, GroupAtMessageCreateEvent.Payload)
+    assert payload.message_type == 103 and payload.msg_elements[0].msg_idx == 'ref-1'
+    parallel = payload.parallel_message
+    assert isinstance(parallel, ParallelMessage)
+    assert [node.content for node in parallel.msg_nodes] == ['@示例昵称 被引用的机器人回复内容']
+    assert [node.message_type for node in parallel.msg_nodes] == [0]
+    print('[ok] 群聊消息新增字段（member_nickname / group_id / parallel_message）')
+
+
+def check_official_model_fields() -> None:
+    """官方文档新增字段：群信息 / 群状态 / 禁言 / 入群申请 / 用户信息 / 素材 / 图文卡片。"""
+    info = GroupInfo.model_validate(
+        {
+            'group_openid': 'group-1',
+            'group_name': '读书分享会',
+            'group_tags': ['阅读'],
+            'group_member_num': 256,
+            'union_group_openid': 'union-group-1',
+        }
+    )
+    assert info.union_group_openid == 'union-group-1'
+
+    state = GroupBotState.model_validate(
+        {
+            'member_openid': 'bot-1',
+            'joined_at': '2026-08-01T12:00:00+08:00',
+            'allow_proactive_msg': False,
+            'recv_msg_setting': 'only_mention',
+            'member_role': 'admin',
+        }
+    )
+    assert state.recv_msg_setting == 'only_mention' and state.allow_proactive_msg is False
+
+    setting = RestrictChatSetting.model_validate(
+        {
+            'global_rule': {
+                'mode': 'schedule',
+                'schedule_rules': [{'task_id': 'task-1', 'start_at': '2026-07-22T10:44:00+08:00', 'enabled': True}],
+                'recurring_rules': [
+                    {'task_id': 'task-2', 'weekdays': [1, 2], 'start_time': '13:00', 'end_time': '14:00'}
+                ],
+            },
+            'members': [
+                {'member_openid': 'member-2', 'username': 'T小不点', 'mute_expire_at': '2026-08-05T11:23:04+08:00'}
+            ],
+        }
+    )
+    assert setting.global_rule is not None and setting.global_rule.mode == 'schedule'
+    assert setting.global_rule.schedule_rules[0].task_id == 'task-1'
+    assert setting.global_rule.recurring_rules[0].weekdays == [1, 2]
+    assert setting.members[0].member_openid == 'member-2'
+
+    join = JoinRequest.model_validate(
+        {
+            'join_request_id': 'req-1',
+            'member_openid': 'member-3',
+            'username': '申请人',
+            'apply_at': '2026-08-05T16:21:40+08:00',
+            'apply_source': 'self_apply',
+            'verify_info': {'method': 'verify_message', 'verify_message': '你好'},
+            'auto_approved': {'strategy_id': 'st-1'},
+        }
+    )
+    assert join.auto_approved is not None and join.auto_approved.strategy_id == 'st-1'
+    assert join.verify_info is not None and join.verify_info.method == 'verify_message'
+
+    user = UserInfo.model_validate(
+        {'username': '笑😊心❤️', 'avatar': 'https://example.com/a.png', 'allow_proactive_msg': True}
+    )
+    assert user.allow_proactive_msg is True
+
+    page = MediaImagePage.model_validate(
+        {
+            'images': [
+                {
+                    'image_id': 'image-1',
+                    'url': 'qqbot-media://image/v1/token',
+                    'file_name': 'kline.png',
+                    'created_at': 1792051409,
+                    'expires_at': 1792656210,
+                }
+            ],
+            'next_cursor': '',
+            'total': 1,
+        }
+    )
+    assert page.total == 1 and page.images[0].url == 'qqbot-media://image/v1/token'
+
+    card = MessageCard(
+        type='tuwen',
+        content=MessageCardContent(
+            title='iPhone 17 Pro 正式发布',
+            description='全新芯片 / 钛金属机身',
+            url='https://news.qq.com/example',
+            pic_url='https://inews.gtimg.com/example.jpg',
+        ),
+    )
+    request = SendGroupMessageRequest(
+        session_id='session-1', request_id='request-1', group_openid='group-1', msg_type=8, card=card
+    )
+    assert request.model_dump(exclude_none=True)['card']['content']['title'] == 'iPhone 17 Pro 正式发布'
+    print('[ok] 官方文档新增字段与图文卡片模型')
+
+
+async def check_new_api_methods() -> None:
+    """用户信息与素材管理 API 路径与响应解析。"""
+    api = QQBotAPI('appid', 'secret')
+    calls: list[tuple[str, str, Any, Any]] = []
+
+    async def fake_request(method: str, path: str, **kwargs: Any) -> Any:
+        calls.append((method, path, kwargs.get('json_body'), kwargs.get('params')))
+        if path == '/v2/users/u1/info':
+            return {'username': '示例', 'avatar': 'https://example.com/a.png', 'allow_proactive_msg': True}
+        if path == '/v2/media-images/prepare':
+            return {'upload_id': 'u1', 'presigned_url': 'https://upload.example', 'expires_in': 3600}
+        if path == '/v2/media-images/complete':
+            return {
+                'image_id': 'image-1',
+                'url': 'qqbot-media://image/v1/token',
+                'ttl': 7776000,
+                'preview_url': 'https://preview.example',
+            }
+        if path == '/v2/media-images':
+            return {
+                'images': [{'image_id': 'image-1', 'url': 'qqbot-media://image/v1/token'}],
+                'next_cursor': '',
+                'total': 1,
+            }
+        return {}
+
+    api._request = fake_request  # type: ignore[method-assign]
+
+    user = await api.get_user_info('u1')
+    assert user.username == '示例' and user.allow_proactive_msg is True
+    prepared = await api.media_image_prepare(
+        file_name='kline.png', file_size=40156, content_type='image/png', md5='md5', sha1='sha1'
+    )
+    assert prepared.upload_id == 'u1' and prepared.expires_in == 3600
+    completed = await api.media_image_complete(upload_id='u1', md5='md5')
+    assert completed.image_id == 'image-1' and completed.ttl == 7776000
+    page = await api.get_media_images()
+    assert page.total == 1 and page.images[0].image_id == 'image-1'
+    await api.delete_media_image('image-1')
+    await api.close()
+
+    assert calls[0] == ('GET', '/v2/users/u1/info', None, None), calls[0]
+    assert calls[1][:2] == ('POST', '/v2/media-images/prepare'), calls[1]
+    assert calls[1][2]['content_type'] == 'image/png', calls[1]
+    assert calls[2][:2] == ('POST', '/v2/media-images/complete'), calls[2]
+    assert calls[3][:2] == ('GET', '/v2/media-images'), calls[3]
+    assert calls[4][:2] == ('DELETE', '/v2/media-images/image-1/delete'), calls[4]
+    print('[ok] 用户信息与素材管理接口')
 
 
 async def check_token_cache() -> None:
@@ -276,6 +507,9 @@ async def check_events() -> None:
 async def main() -> None:
     check_declarations()
     check_management_event_payloads()
+    check_group_message_payload_fields()
+    check_official_model_fields()
+    await check_new_api_methods()
     await check_token_cache()
     await check_typed_rpc()
     await check_events()

@@ -45,6 +45,8 @@
     asyncio.run(main())
 """
 
+__version__ = '0.1.2'
+
 from . import api as api
 from . import engine as engine
 from . import events as events
@@ -74,5 +76,3 @@ from .rpc import QQBotAPIHandler as QQBotAPIHandler
 
 # rpc 的星导出会带入其子模块名（channels / groups / handlers / ...），
 # 这里恢复本包 ``handlers`` 子模块别名，避免被 ``rpc.handlers`` 覆盖
-
-__version__ = '0.1.1'

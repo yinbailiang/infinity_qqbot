@@ -9,6 +9,7 @@ from .base import QQModel
 __all__ = [
     'DMS',
     'Channel',
+    'GroupMentionsUser',
     'Guild',
     'GuildMember',
     'Role',
@@ -28,6 +29,14 @@ class User(QQModel):
     user_openid: str | None = Field(default=None, description='单聊场景用户 OpenID')
     member_openid: str | None = Field(default=None, description='群聊场景成员 OpenID')
     member_role: str | None = Field(default=None, description='群内角色：member/admin/owner')
+    member_nickname: str | None = Field(default=None, description='群聊场景群昵称（与 username 可能相同）')
+
+
+class GroupMentionsUser(User):
+    """群聊消息中被 @ 的用户。"""
+
+    is_you: bool | None = Field(default=None, description='是否 @ 的是当前机器人')
+    scope: str | None = Field(default=None, description='all：@全体成员 / single：指定 @ 对象')
 
 
 class Guild(QQModel):

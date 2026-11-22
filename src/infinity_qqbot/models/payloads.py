@@ -7,9 +7,10 @@ from typing import Any
 from pydantic import Field
 
 from .base import QQModel
-from .common import Channel, Guild, GuildMember, User
+from .common import Channel, GroupMentionsUser, Guild, GuildMember, User
+from .group import JoinRequest
 from .interaction import InteractionData
-from .message import ARKData, MessageAttachment, MessageReference, MessageScene, MsgElement
+from .message import ARKData, MessageAttachment, MessageReference, MessageScene, MsgElement, ParallelMessage
 from .responses import ReactionEmoji, ReactionTarget
 
 __all__ = [
@@ -22,6 +23,7 @@ __all__ = [
     'FriendEventPayload',
     'GroupJoinRequestEventPayload',
     'GroupMemberEventPayload',
+    'GroupMessageEventPayload',
     'GroupRobotEventPayload',
     'GuildEventPayload',
     'GuildMemberEventPayload',
@@ -113,16 +115,28 @@ class QQMessageEventPayload(QQBotEventPayload):
 
     id: str = Field(description='消息 ID，可用于被动回复和撤回')
     author: User | None = Field(default=None, description='发送者')
-    content: str | None = Field(default=None, description='消息文本内容')
+    content: str | None = Field(
+        default=None,
+        description='消息文本内容；@ 成员替换为 <@{member_openid}>，@ 全体成员替换为 <@all>',
+    )
     timestamp: str | None = Field(default=None, description='消息发送时间（RFC3339）')
     message_type: int | None = Field(
         default=None, description='0 普通文本 / 3 卡片 / 101 并行 / 102 聊天记录 / 103 引用'
     )
     message_scene: MessageScene | None = Field(default=None, description='消息场景上下文')
     attachments: list[MessageAttachment] = Field(default_factory=list[MessageAttachment], description='消息附件')
-    mentions: list[User] = Field(default_factory=list[User], description='@用户列表')
+    mentions: list[GroupMentionsUser] = Field(default_factory=list[GroupMentionsUser], description='@用户列表')
     ark_data: ARKData | None = Field(default=None, description='结构化卡片数据')
     msg_elements: list[MsgElement] = Field(default_factory=list['MsgElement'], description='消息元素列表')
+    parallel_message: ParallelMessage | None = Field(default=None, description='并行消息节点（群聊引用消息场景出现）')
+
+
+class GroupMessageEventPayload(QQMessageEventPayload):
+    """群聊消息事件负载（GROUP_AT_MESSAGE_CREATE / GROUP_MESSAGE_CREATE）。"""
+
+    group_openid: str | None = Field(default=None, description='群 OpenID')
+    group_id: str | None = Field(default=None, description='群 ID（与 group_openid 相同）')
+    union_group_openid: str | None = Field(default=None, description='跨应用关联群 OpenID（绑定第三方应用时有效）')
 
 
 class FriendEventPayload(QQBotEventPayload):
@@ -145,6 +159,7 @@ class GroupRobotEventPayload(QQBotEventPayload):
     timestamp: int | None = Field(default=None, description='事件时间戳（Unix 秒）')
     group_openid: str | None = Field(default=None, description='群 OpenID')
     op_member_openid: str | None = Field(default=None, description='操作者 OpenID')
+    union_group_openid: str | None = Field(default=None, description='跨应用关联群 OpenID（绑定第三方应用时有效）')
 
 
 class GroupMemberEventPayload(QQBotEventPayload):
@@ -154,15 +169,14 @@ class GroupMemberEventPayload(QQBotEventPayload):
     group_openid: str | None = Field(default=None, description='群 OpenID')
     member_openid: str | None = Field(default=None, description='成员 OpenID')
     op_member_openid: str | None = Field(default=None, description='操作者 OpenID')
+    union_group_openid: str | None = Field(default=None, description='跨应用关联群 OpenID（绑定第三方应用时有效）')
 
 
-class GroupJoinRequestEventPayload(QQBotEventPayload):
+class GroupJoinRequestEventPayload(JoinRequest):
     """用户申请加群事件负载（GROUP_JOIN_REQUEST）。"""
 
     timestamp: str | None = Field(default=None, description='事件时间')
     group_openid: str | None = Field(default=None, description='群 OpenID')
-    member_openid: str | None = Field(default=None, description='申请人 OpenID')
-    join_request_id: str | None = Field(default=None, description='申请 ID')
 
 
 class InteractionEventPayload(QQBotEventPayload):

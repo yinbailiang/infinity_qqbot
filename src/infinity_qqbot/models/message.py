@@ -19,6 +19,8 @@ __all__ = [
     'MediaInfo',
     'Message',
     'MessageAttachment',
+    'MessageCard',
+    'MessageCardContent',
     'MessageExtInfo',
     'MessageMarkdown',
     'MessageMarkdownParam',
@@ -26,6 +28,8 @@ __all__ = [
     'MessageScene',
     'Modal',
     'MsgElement',
+    'MsgNode',
+    'ParallelMessage',
     'Permission',
     'RenderData',
     'Row',
@@ -52,11 +56,30 @@ class MessageScene(QQModel):
     ext: list[str] = Field(default_factory=list, description='扩展键值对列表')
 
 
+class MessageCardContent(QQModel):
+    """图文卡片内容。"""
+
+    title: str = Field(description='卡片标题（1-50 字符）')
+    description: str = Field(description='卡片描述（1-200 字符）')
+    url: str = Field(description='跳转链接（https，长度不超过 1024 字符）')
+    pic_url: str = Field(description='封面图链接（https，长度不超过 1024 字符）')
+
+
+class MessageCard(QQModel):
+    """图文卡片消息（``msg_type=8``）。"""
+
+    type: str = Field(description='卡片类型，当前仅 tuwen')
+    content: MessageCardContent = Field(description='卡片内容')
+
+
 class ARKData(QQModel):
     """结构化卡片（ARK）消息数据。"""
 
     prompt: str | None = Field(default=None, description='用户操作提示文本')
-    ark_type: str | None = Field(default=None, description='卡片类型标识')
+    ark_type: str | None = Field(
+        default=None,
+        description='卡片类型：tuwen / feed / miniapp / map / contact_card / video_share / music_together / picture',
+    )
     ark_name: str | None = Field(default=None, description='卡片类型中文名')
     fields: dict[str, Any] = Field(default_factory=dict, description='卡片字段')
 
@@ -71,6 +94,19 @@ class MsgElement(QQModel):
     attachments: list[MessageAttachment] = Field(default_factory=list[MessageAttachment], description='元素附件')
     ark_data: ARKData | None = Field(default=None, description='元素卡片数据')
     msg_elements: list[Any] = Field(default_factory=list, description='嵌套消息元素（递归结构）')
+
+
+class MsgNode(QQModel):
+    """并行消息节点。"""
+
+    content: str | None = Field(default=None, description='节点消息正文')
+    message_type: int | None = Field(default=None, description='节点消息类型')
+
+
+class ParallelMessage(QQModel):
+    """并行 / 引用消息节点集合。"""
+
+    msg_nodes: list[MsgNode] = Field(default_factory=list[MsgNode], description='并行消息节点列表')
 
 
 class MessageReference(QQModel):

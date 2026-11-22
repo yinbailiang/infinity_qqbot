@@ -41,6 +41,7 @@ from .models import (
     FriendEventPayload,
     GroupJoinRequestEventPayload,
     GroupMemberEventPayload,
+    GroupMessageEventPayload,
     GroupRobotEventPayload,
     GuildEventPayload,
     GuildMemberEventPayload,
@@ -499,10 +500,8 @@ class GroupAtMessageCreateEvent(EventDeclaration):
     type_name = 'GROUP_AT_MESSAGE_CREATE'
     name = 'qqbot.event.group_at_message_create'
 
-    class Payload(QQMessageEventPayload):
-        """群 @ 消息负载（``author.member_openid`` 有值）。"""
-
-        group_openid: str | None = None
+    class Payload(GroupMessageEventPayload):
+        """群 @ 消息负载（``author.member_openid`` 有值；``group_id`` 与 ``group_openid`` 相同）。"""
 
     payload_type = Payload
 
@@ -514,10 +513,8 @@ class GroupMessageCreateEvent(EventDeclaration):
     type_name = 'GROUP_MESSAGE_CREATE'
     name = 'qqbot.event.group_message_create'
 
-    class Payload(QQMessageEventPayload):
-        """群消息负载。"""
-
-        group_openid: str | None = None
+    class Payload(GroupMessageEventPayload):
+        """群消息负载（``group_id`` 与 ``group_openid`` 相同）。"""
 
     payload_type = Payload
 

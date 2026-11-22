@@ -22,6 +22,10 @@ __all__ = [
     'ForumThread',
     'Gateway',
     'GatewayBot',
+    'MediaImage',
+    'MediaImageCompleteResult',
+    'MediaImagePage',
+    'MediaImagePrepareResult',
     'MessageResponse',
     'MessageSetting',
     'MuteUsersResult',
@@ -43,6 +47,7 @@ __all__ = [
     'UploadPrepareResponse',
     'UrlLinkData',
     'UrlLinkResponse',
+    'UserInfo',
 ]
 
 
@@ -105,6 +110,51 @@ class FileUploadResponse(QQModel):
     ttl: int | None = Field(default=None, description='file_info 有效期（秒），0 表示长期有效')
     id: str | None = Field(default=None, description='消息 ID（仅 srv_send_msg=true）')
     raw_url: str | None = Field(default=None, description='文件下载链接（分片合并且图片/视频/语音时返回）')
+
+
+class UserInfo(QQModel):
+    """用户基本信息（``GET /v2/users/{user_openid}/info``）。"""
+
+    union_openid: str | None = Field(default=None, description='跨应用关联用户 OpenID')
+    username: str | None = Field(default=None, description='用户名')
+    avatar: str | None = Field(default=None, description='用户头像原图')
+    allow_proactive_msg: bool | None = Field(default=None, description='是否接收主动推送')
+
+
+class MediaImagePrepareResult(QQModel):
+    """申请素材图片上传响应。"""
+
+    upload_id: str = Field(description='上传任务 ID，4 小时内有效')
+    presigned_url: str | None = Field(default=None, description='预签名上传 URL')
+    expires_in: int | None = Field(default=None, description='预签名 URL 有效期（秒）')
+
+
+class MediaImageCompleteResult(QQModel):
+    """完成素材图片上传响应。"""
+
+    image_id: str = Field(description='图片 ID，用于查询与删除')
+    url: str | None = Field(default=None, description='Markdown 引用链接（qqbot-media://）')
+    ttl: int | None = Field(default=None, description='滑动有效期窗口（秒）')
+    preview_url: str | None = Field(default=None, description='临时预览链接，请勿持久化')
+
+
+class MediaImage(QQModel):
+    """素材图片。"""
+
+    image_id: str = Field(description='图片 ID')
+    url: str | None = Field(default=None, description='Markdown 引用链接（qqbot-media://）')
+    file_name: str | None = Field(default=None, description='上传时的文件名')
+    preview_url: str | None = Field(default=None, description='临时预览链接，请勿持久化')
+    created_at: int | None = Field(default=None, description='上传时间（Unix 秒）')
+    expires_at: int | None = Field(default=None, description='过期时间（Unix 秒）')
+
+
+class MediaImagePage(QQModel):
+    """素材图片分页数据。"""
+
+    images: list[MediaImage] = Field(default_factory=list[MediaImage], description='图片列表')
+    next_cursor: str | None = Field(default=None, description='下一页游标，空串表示已到末页')
+    total: int | None = Field(default=None, description='当前有效图片总数')
 
 
 class UploadPart(QQModel):

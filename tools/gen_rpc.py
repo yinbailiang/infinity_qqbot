@@ -67,6 +67,7 @@ QQ_MESSAGE_FIELDS = (
     'event_id: str | None = None',
     'msg_seq: int | None = None',
     'media: MediaInfo | None = None',
+    'card: MessageCard | None = None',
     'message_reference: MessageReference | None = None',
     'is_wakeup: bool | None = None',
     'input_notify: InputNotify | None = None',
@@ -151,6 +152,19 @@ MESSAGES: tuple[Method, ...] = (
         'block_size: str | None = None',
         'md5: str | None = None',
     ),
+    M(
+        'media_image_prepare',
+        '申请素材图片上传',
+        'MediaImagePrepareResult',
+        'file_name: str',
+        'file_size: int',
+        'content_type: str',
+        'md5: str',
+        'sha1: str',
+    ),
+    M('media_image_complete', '完成素材图片上传', 'MediaImageCompleteResult', 'upload_id: str', 'md5: str'),
+    M('get_media_images', '查询有效素材图片', 'MediaImagePage', 'cursor: str | None = None'),
+    M('delete_media_image', '删除素材图片', 'None', 'image_id: str'),
 )
 
 GROUPS: tuple[Method, ...] = (
@@ -252,6 +266,7 @@ INTERACTIONS: tuple[Method, ...] = (
         'after: str | None = None',
         'limit: int | None = None',
     ),
+    M('get_user_info', '获取用户基本信息', 'UserInfo', 'user_openid: str'),
     M('generate_url_link', '生成分享链接', 'UrlLinkResponse', 'callback_data: str | None = None'),
     M(
         'respond_interaction',

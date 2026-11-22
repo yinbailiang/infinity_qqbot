@@ -36,6 +36,9 @@ from ..interactions import (
     GetPanelRequest,
     GetPanelRequestEvent,
     GetPanelResponseEvent,
+    GetUserInfoRequest,
+    GetUserInfoRequestEvent,
+    GetUserInfoResponseEvent,
     ListPanelsRequest,
     ListPanelsRequestEvent,
     ListPanelsResponseEvent,
@@ -84,6 +87,19 @@ class InteractionHandlersMixin(ServiceHandler):
             before=payload.before,
             after=payload.after,
             limit=payload.limit,
+        )
+        return {'result': result}
+
+    @process(GetUserInfoRequestEvent, GetUserInfoResponseEvent)
+    async def get_user_info(
+        self,
+        payload: GetUserInfoRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """获取用户基本信息。"""
+        result = await self._api.get_user_info(
+            user_openid=payload.user_openid,
         )
         return {'result': result}
 

@@ -8,8 +8,10 @@
 
 - 凭证：``fetch_access_token`` / ``get_access_token``（自动缓存与提前刷新）；
 - 网关：``get_gateway`` / ``get_gateway_bot``；
+- 机器人：``get_me`` / ``get_my_guilds`` / ``get_user_info``；
 - 单聊：发送 / 流式发送 / 撤回 / 富媒体上传（URL 与分片）；
 - 群聊：发送 / 撤回 / 富媒体上传 / 群信息 / 群成员 / 入群申请 / 黑名单 / 禁言；
+- 素材图片：``media_image_prepare`` / ``media_image_complete`` / ``get_media_images`` / ``delete_media_image``；
 - 互动：``respond_interaction``；菜单与指令面板；
 - 频道：子频道管理、消息、私信、成员、身份组、子频道权限、禁言（含批量）、公告、权限、
   表情表态、精华消息、日程、音频控制、在线成员数、论坛帖子、消息频率设置。
@@ -38,6 +40,7 @@ import certifi
 from infinity_bus.templates import ServiceError
 from pydantic import BaseModel
 
+from . import __version__
 from .models import (
     DMS,
     AccessTokenResponse,
@@ -67,11 +70,15 @@ from .models import (
     JoinApprovalWhitelistResult,
     JoinRequestPage,
     Keyboard,
+    MediaImageCompleteResult,
+    MediaImagePage,
+    MediaImagePrepareResult,
     MediaInfo,
     Menu,
     MenuResponse,
     MenuVersion,
     Message,
+    MessageCard,
     MessageMarkdown,
     MessageReference,
     MessageResponse,
@@ -95,6 +102,7 @@ from .models import (
     ThreadList,
     UploadPrepareResponse,
     UrlLinkResponse,
+    UserInfo,
 )
 
 logger = logging.getLogger(__name__)
@@ -112,7 +120,7 @@ QQBOT_API_BASE = 'https://api.bot.qq.com'
 QQBOT_TOKEN_PATH = '/app/getAppAccessToken'
 
 #: 默认 User-Agent
-_USER_AGENT = 'infinity-qqbot/0.1.1'
+_USER_AGENT = f'infinity-qqbot/{__version__}'
 
 
 class QQBotAPIError(ServiceError):
@@ -425,6 +433,15 @@ class QQBotAPI:
         items: list[Any] = data or []
         return [Guild.model_validate(item) for item in items]
 
+    async def get_user_info(self, user_openid: str) -> UserInfo:
+        """获取用户基本信息（``GET /v2/users/{user_openid}/info``）。
+
+        Returns:
+            用户昵称、头像、跨应用 OpenID 与主动消息接收开关。
+        """
+        data = await self._request('GET', f'/v2/users/{user_openid}/info')
+        return UserInfo.model_validate(data or {})
+
     async def generate_url_link(self, *, callback_data: str | None = None) -> UrlLinkResponse:
         """生成分享链接（``POST /v2/generate_url_link``）。
 
@@ -450,6 +467,7 @@ class QQBotAPI:
         event_id: str | None = None,
         msg_seq: int | None = None,
         media: MediaInfo | dict[str, Any] | None = None,
+        card: MessageCard | dict[str, Any] | None = None,
         message_reference: MessageReference | dict[str, Any] | None = None,
         is_wakeup: bool | None = None,
         input_notify: InputNotify | dict[str, Any] | None = None,
@@ -464,6 +482,7 @@ class QQBotAPI:
             event_id=event_id,
             msg_seq=msg_seq,
             media=media,
+            card=card,
             message_reference=message_reference,
             is_wakeup=is_wakeup,
             input_notify=input_notify,
@@ -482,6 +501,7 @@ class QQBotAPI:
         event_id: str | None = None,
         msg_seq: int | None = None,
         media: MediaInfo | dict[str, Any] | None = None,
+        card: MessageCard | dict[str, Any] | None = None,
         message_reference: MessageReference | dict[str, Any] | None = None,
         is_wakeup: bool | None = None,
         input_notify: InputNotify | dict[str, Any] | None = None,
@@ -504,6 +524,7 @@ class QQBotAPI:
                 event_id=event_id,
                 msg_seq=msg_seq,
                 media=media,
+                card=card,
                 message_reference=message_reference,
                 is_wakeup=is_wakeup,
                 input_notify=input_notify,
@@ -649,6 +670,7 @@ class QQBotAPI:
         event_id: str | None = None,
         msg_seq: int | None = None,
         media: MediaInfo | dict[str, Any] | None = None,
+        card: MessageCard | dict[str, Any] | None = None,
         message_reference: MessageReference | dict[str, Any] | None = None,
         is_wakeup: bool | None = None,
         input_notify: InputNotify | dict[str, Any] | None = None,
@@ -667,6 +689,7 @@ class QQBotAPI:
                 event_id=event_id,
                 msg_seq=msg_seq,
                 media=media,
+                card=card,
                 message_reference=message_reference,
                 is_wakeup=is_wakeup,
                 input_notify=input_notify,
@@ -746,9 +769,60 @@ class QQBotAPI:
         )
 
     # ------------------------------------------------------------------
-    # 群信息 / 群成员 / 入群申请 / 黑名单 / 禁言
+    # 素材图片（Markdown qqbot-media:// 引用）
     # ------------------------------------------------------------------
 
+    async def media_image_prepare(
+        self,
+        *,
+        file_name: str,
+        file_size: int,
+        content_type: str,
+        md5: str,
+        sha1: str,
+    ) -> MediaImagePrepareResult:
+        """申请素材图片上传（``POST /v2/media-images/prepare``）。
+
+        Returns:
+            上传任务 ID、预签名上传 URL 与 URL 有效期。
+        """
+        data = await self._request(
+            'POST',
+            '/v2/media-images/prepare',
+            json_body=_compact(
+                file_name=file_name,
+                file_size=file_size,
+                content_type=content_type,
+                md5=md5,
+                sha1=sha1,
+            ),
+        )
+        return MediaImagePrepareResult.model_validate(data or {})
+
+    async def media_image_complete(self, *, upload_id: str, md5: str) -> MediaImageCompleteResult:
+        """完成素材图片上传（``POST /v2/media-images/complete``）。
+
+        ``md5`` 需使用预签名 URL 直传后 COS 返回的 ETag（去掉引号）。
+        """
+        data = await self._request(
+            'POST',
+            '/v2/media-images/complete',
+            json_body=_compact(upload_id=upload_id, md5=md5),
+        )
+        return MediaImageCompleteResult.model_validate(data or {})
+
+    async def get_media_images(self, *, cursor: str | None = None) -> MediaImagePage:
+        """查询有效素材图片（``GET /v2/media-images``）。"""
+        data = await self._request('GET', '/v2/media-images', params={'cursor': cursor})
+        return MediaImagePage.model_validate(data or {})
+
+    async def delete_media_image(self, image_id: str) -> None:
+        """删除素材图片（``DELETE /v2/media-images/{image_id}/delete``）。"""
+        await self._request('DELETE', f'/v2/media-images/{image_id}/delete')
+
+    # ------------------------------------------------------------------
+    # 群信息 / 群成员 / 入群申请 / 黑名单 / 禁言
+    # ------------------------------------------------------------------
     async def get_group_info(self, group_openid: str) -> GroupInfo:
         """获取群基本信息（``GET /v2/groups/{group_openid}/info``）。"""
         data = await self._request('GET', f'/v2/groups/{group_openid}/info')

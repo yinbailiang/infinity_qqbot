@@ -28,6 +28,7 @@ from ..models import (
     PanelInfo,
     PanelList,
     UrlLinkResponse,
+    UserInfo,
 )
 
 __all__ = [
@@ -59,6 +60,10 @@ __all__ = [
     'GetPanelRequestEvent',
     'GetPanelResponse',
     'GetPanelResponseEvent',
+    'GetUserInfoRequest',
+    'GetUserInfoRequestEvent',
+    'GetUserInfoResponse',
+    'GetUserInfoResponseEvent',
     'ListPanelsRequest',
     'ListPanelsRequestEvent',
     'ListPanelsResponse',
@@ -86,6 +91,7 @@ __all__ = [
     'get_menu',
     'get_my_guilds',
     'get_panel',
+    'get_user_info',
     'list_panels',
     'put_menu',
     'respond_interaction',
@@ -209,6 +215,65 @@ async def get_my_guilds(
     if not response.success:
         raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
     assert isinstance(response, GetMyGuildsResponse)
+    assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
+    return response.result
+
+
+# ======================================================================
+# get_user_info —— 获取用户基本信息
+# ======================================================================
+
+
+class GetUserInfoRequest(RequestProtocol):
+    """获取用户基本信息（``QQBotAPI.get_user_info`` 请求参数）。"""
+
+    user_openid: str
+
+
+class GetUserInfoResponse(ResponseProtocol):
+    """获取用户基本信息响应。"""
+
+    result: UserInfo | None = None
+
+
+@qqbot_events.event
+class GetUserInfoRequestEvent(EventDeclaration):
+    """获取用户基本信息（请求事件 ``qqbot.api.get_user_info.request``）。"""
+
+    name = 'qqbot.api.get_user_info.request'
+    payload_type = GetUserInfoRequest
+
+
+@qqbot_events.event
+class GetUserInfoResponseEvent(EventDeclaration):
+    """获取用户基本信息（响应事件 ``qqbot.api.get_user_info.response``）。"""
+
+    name = 'qqbot.api.get_user_info.response'
+    payload_type = GetUserInfoResponse
+
+
+async def get_user_info(
+    bus_proxy: EventBus.Proxy,
+    *,
+    user_openid: str,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> UserInfo:
+    """获取用户基本信息（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'user_openid': user_openid,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=GetUserInfoRequestEvent.name,
+        req_data=req_data,
+        resp_event=GetUserInfoResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, GetUserInfoResponse)
     assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
     return response.result
 

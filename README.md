@@ -20,8 +20,8 @@
 
 ## 安装
 
-要求 **Python 3.14+**；运行依赖（`aiohttp` / `certifi` / `infinity-bus[templates]` /
-`infinity-parse`）随包自动安装。
+要求 **Python 3.14+**；运行依赖（`aiohttp` / `certifi` / `infinity-bus[templates]`）
+随包自动安装。
 
 ### 从 PyPI 安装（推荐）
 
@@ -113,6 +113,12 @@ asyncio.run(main())
 事件声明在定义时由 `ModuleEventRegister` 自动收集（`infinity_qqbot.qqbot_events`），
 注册时直接调用 `qqbot_events.register_all_events(registry)`，新增声明无需手工维护清单。
 
+群聊消息负载的 `author` 额外提供 `member_nickname`（群昵称）与 `member_role`
+（`member` / `admin` / `owner`）；顶层 `group_id` 与 `group_openid` 相同，
+`union_group_openid` 为跨应用群标识；`mentions` 为 `GroupMentionsUser`（含 `is_you` / `scope`）；
+引用消息（`message_type=103`）还会附带 `parallel_message.msg_nodes`。
+以上字段均可选，旧负载解析结果保持为 `None`。
+
 ## 强类型 RPC 调用 API
 
 每个 API 方法都有生成的**请求模型、响应模型、事件声明与强类型客户端**
@@ -135,6 +141,11 @@ print(message.id)  # MessageResponse（类型由客户端签名给出）
 - 事件名：`qqbot.api.<method>.request` / `qqbot.api.<method>.response`，
   可直接订阅任意方法的请求 / 响应事件；
 - 请求 / 响应模型**直接继承**库的 `RequestProtocol` / `ResponseProtocol`；
+- 支持 `msg_type=8` 图文卡片（`card=MessageCard(type='tuwen', content=MessageCardContent(...))`）；
+- 群消息的 `msg_id` 也可传给 `send_c2c_message`，私聊回复该群消息发送者（需好友关系）；
+- 素材图片：`media_image_prepare` → `media_image_complete` → `get_media_images` / `delete_media_image`，
+  上传后可在 Markdown 中引用 `qqbot-media://` 链接；
+- 用户信息：`get_user_info(user_openid)` 返回昵称、头像、`union_openid` 与 `allow_proactive_msg`；
 - 失败时抛出 `QQBotAPIError`（`error_msg` 含平台错误码，跨总线保留）；
 - 需要修改 / 新增方法时，编辑 `tools/gen_rpc.py` 中的规格并重新生成：
 
@@ -189,9 +200,10 @@ print(message.id)  # MessageResponse（类型由客户端签名给出）
   ```python
   from infinity_bus.templates import handler
 
+
   @handler(C2CMessageCreateEvent)
-  async def echo(payload: C2CMessageCreateEvent.Payload) -> None:
-      ...
+  async def echo(payload: C2CMessageCreateEvent.Payload) -> None: ...
+
 
   await handlers.register(echo())
   ```

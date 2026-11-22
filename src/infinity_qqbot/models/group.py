@@ -10,6 +10,7 @@ from .base import QQModel
 
 __all__ = [
     'BlacklistUser',
+    'GlobalMuteRule',
     'GroupBlacklistPage',
     'GroupBlacklistResult',
     'GroupBotState',
@@ -23,8 +24,12 @@ __all__ = [
     'JoinApprovalStrategyUpdated',
     'JoinApprovalWhitelistResult',
     'JoinRequest',
+    'JoinRequestAutoApproved',
     'JoinRequestPage',
     'JoinRequestVerifyInfo',
+    'MemberMuteState',
+    'MuteRecurringRule',
+    'MuteScheduleRule',
     'RestrictChatSetting',
     'ReviewQA',
     'SetMemberMuteState',
@@ -40,10 +45,19 @@ class GroupInfo(QQModel):
     group_class_text: str | None = Field(default=None, description='群分类')
     group_tags: list[str] = Field(default_factory=list, description='群标签')
     group_member_num: int | None = Field(default=None, description='群成员人数')
+    union_group_openid: str | None = Field(default=None, description='跨应用关联群 OpenID（绑定第三方应用时有效）')
 
 
 class GroupBotState(QQModel):
-    """机器人群内状态（字段随平台更新，未建模字段可通过 extra 获取）。"""
+    """机器人群内状态。"""
+
+    member_openid: str | None = Field(default=None, description='机器人的 openid')
+    joined_at: str | None = Field(default=None, description='入群时间（RFC3339）')
+    allow_proactive_msg: bool | None = Field(default=None, description='是否接收主动推送')
+    recv_msg_setting: str | None = Field(
+        default=None, description='接收消息类型：all / only_mention / mention_and_context'
+    )
+    member_role: str | None = Field(default=None, description='member / owner / admin')
 
 
 class GroupMember(QQModel):
@@ -79,6 +93,12 @@ class JoinRequestVerifyInfo(QQModel):
     review_qa_list: list[ReviewQA] = Field(default_factory=list[ReviewQA], description='问答列表')
 
 
+class JoinRequestAutoApproved(QQModel):
+    """入群申请自动审批信息。"""
+
+    strategy_id: str | None = Field(default=None, description='自动审批通过的策略 ID')
+
+
 class JoinRequest(QQModel):
     """入群申请对象。"""
 
@@ -92,6 +112,7 @@ class JoinRequest(QQModel):
     invited_by: str | None = Field(default=None, description='邀请人 openid')
     bot: bool | None = Field(default=None, description='是否机器人账号')
     verify_info: JoinRequestVerifyInfo | None = Field(default=None, description='入群验证信息')
+    auto_approved: JoinRequestAutoApproved | None = Field(default=None, description='自动审批通过信息')
 
 
 class JoinRequestPage(QQModel):
@@ -109,8 +130,51 @@ class SetMemberMuteState(QQModel):
     mute_expire_at: str | None = Field(default=None, description='禁言到期时间（RFC3339）')
 
 
+class MuteScheduleRule(QQModel):
+    """定时禁言规则。"""
+
+    task_id: str | None = Field(default=None, description='任务 ID')
+    start_at: str | None = Field(default=None, description='禁言开始时间（RFC3339）')
+    end_at: str | None = Field(default=None, description='禁言结束时间（RFC3339）')
+    enabled: bool | None = Field(default=None, description='此规则是否启用')
+
+
+class MuteRecurringRule(QQModel):
+    """周期禁言规则。"""
+
+    task_id: str | None = Field(default=None, description='任务 ID')
+    weekdays: list[int] = Field(default_factory=list[int], description='生效星期（1=周一，7=周日）')
+    start_time: str | None = Field(default=None, description='时段开始时间 HH:mm')
+    end_time: str | None = Field(default=None, description='时段结束时间 HH:mm')
+    enabled: bool | None = Field(default=None, description='此规则是否启用')
+
+
+class GlobalMuteRule(QQModel):
+    """群级禁言规则。"""
+
+    mode: str | None = Field(default=None, description='none 未开启 / always 始终禁言 / schedule 定时禁言')
+    schedule_rules: list[MuteScheduleRule] = Field(
+        default_factory=list[MuteScheduleRule], description='定时禁言规则列表'
+    )
+    recurring_rules: list[MuteRecurringRule] = Field(
+        default_factory=list[MuteRecurringRule], description='周期禁言规则列表'
+    )
+
+
+class MemberMuteState(QQModel):
+    """成员禁言状态。"""
+
+    member_openid: str | None = Field(default=None, description='被禁言成员 openid')
+    mute_expire_at: str | None = Field(default=None, description='禁言到期时间（RFC3339）')
+    username: str | None = Field(default=None, description='被禁言成员昵称')
+    union_openid: str | None = Field(default=None, description='跨应用统一标识（如有）')
+
+
 class RestrictChatSetting(QQModel):
-    """群禁言状态（字段随平台更新，未建模字段可通过 extra 获取）。"""
+    """群禁言状态。"""
+
+    global_rule: GlobalMuteRule | None = Field(default=None, description='群级禁言规则')
+    members: list[MemberMuteState] = Field(default_factory=list[MemberMuteState], description='当前禁言成员列表')
 
 
 class BlacklistUser(QQModel):

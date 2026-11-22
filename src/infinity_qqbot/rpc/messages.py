@@ -20,7 +20,11 @@ from ..models import (
     FileUploadResponse,
     InputNotify,
     Keyboard,
+    MediaImageCompleteResult,
+    MediaImagePage,
+    MediaImagePrepareResult,
     MediaInfo,
+    MessageCard,
     MessageMarkdown,
     MessageReference,
     MessageResponse,
@@ -37,6 +41,14 @@ __all__ = [
     'C2CUploadPrepareRequestEvent',
     'C2CUploadPrepareResponse',
     'C2CUploadPrepareResponseEvent',
+    'DeleteMediaImageRequest',
+    'DeleteMediaImageRequestEvent',
+    'DeleteMediaImageResponse',
+    'DeleteMediaImageResponseEvent',
+    'GetMediaImagesRequest',
+    'GetMediaImagesRequestEvent',
+    'GetMediaImagesResponse',
+    'GetMediaImagesResponseEvent',
     'GroupUploadPartFinishRequest',
     'GroupUploadPartFinishRequestEvent',
     'GroupUploadPartFinishResponse',
@@ -45,6 +57,14 @@ __all__ = [
     'GroupUploadPrepareRequestEvent',
     'GroupUploadPrepareResponse',
     'GroupUploadPrepareResponseEvent',
+    'MediaImageCompleteRequest',
+    'MediaImageCompleteRequestEvent',
+    'MediaImageCompleteResponse',
+    'MediaImageCompleteResponseEvent',
+    'MediaImagePrepareRequest',
+    'MediaImagePrepareRequestEvent',
+    'MediaImagePrepareResponse',
+    'MediaImagePrepareResponseEvent',
     'RecallC2CMessageRequest',
     'RecallC2CMessageRequestEvent',
     'RecallC2CMessageResponse',
@@ -75,8 +95,12 @@ __all__ = [
     'UploadGroupFileResponseEvent',
     'c2c_upload_part_finish',
     'c2c_upload_prepare',
+    'delete_media_image',
+    'get_media_images',
     'group_upload_part_finish',
     'group_upload_prepare',
+    'media_image_complete',
+    'media_image_prepare',
     'recall_c2c_message',
     'recall_group_message',
     'send_c2c_message',
@@ -104,6 +128,7 @@ class SendC2CMessageRequest(RequestProtocol):
     event_id: str | None = None
     msg_seq: int | None = None
     media: MediaInfo | None = None
+    card: MessageCard | None = None
     message_reference: MessageReference | None = None
     is_wakeup: bool | None = None
     input_notify: InputNotify | None = None
@@ -144,6 +169,7 @@ async def send_c2c_message(
     event_id: str | None = None,
     msg_seq: int | None = None,
     media: MediaInfo | None = None,
+    card: MessageCard | None = None,
     message_reference: MessageReference | None = None,
     is_wakeup: bool | None = None,
     input_notify: InputNotify | None = None,
@@ -162,6 +188,7 @@ async def send_c2c_message(
         'event_id': event_id,
         'msg_seq': msg_seq,
         'media': media,
+        'card': card,
         'message_reference': message_reference,
         'is_wakeup': is_wakeup,
         'input_notify': input_notify,
@@ -570,6 +597,7 @@ class SendGroupMessageRequest(RequestProtocol):
     event_id: str | None = None
     msg_seq: int | None = None
     media: MediaInfo | None = None
+    card: MessageCard | None = None
     message_reference: MessageReference | None = None
     is_wakeup: bool | None = None
     input_notify: InputNotify | None = None
@@ -610,6 +638,7 @@ async def send_group_message(
     event_id: str | None = None,
     msg_seq: int | None = None,
     media: MediaInfo | None = None,
+    card: MessageCard | None = None,
     message_reference: MessageReference | None = None,
     is_wakeup: bool | None = None,
     input_notify: InputNotify | None = None,
@@ -628,6 +657,7 @@ async def send_group_message(
         'event_id': event_id,
         'msg_seq': msg_seq,
         'media': media,
+        'card': card,
         'message_reference': message_reference,
         'is_wakeup': is_wakeup,
         'input_notify': input_notify,
@@ -927,4 +957,254 @@ async def group_upload_part_finish(
     if not response.success:
         raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
     assert isinstance(response, GroupUploadPartFinishResponse)
+    return response.result
+
+
+# ======================================================================
+# media_image_prepare —— 申请素材图片上传
+# ======================================================================
+
+
+class MediaImagePrepareRequest(RequestProtocol):
+    """申请素材图片上传（``QQBotAPI.media_image_prepare`` 请求参数）。"""
+
+    file_name: str
+    file_size: int
+    content_type: str
+    md5: str
+    sha1: str
+
+
+class MediaImagePrepareResponse(ResponseProtocol):
+    """申请素材图片上传响应。"""
+
+    result: MediaImagePrepareResult | None = None
+
+
+@qqbot_events.event
+class MediaImagePrepareRequestEvent(EventDeclaration):
+    """申请素材图片上传（请求事件 ``qqbot.api.media_image_prepare.request``）。"""
+
+    name = 'qqbot.api.media_image_prepare.request'
+    payload_type = MediaImagePrepareRequest
+
+
+@qqbot_events.event
+class MediaImagePrepareResponseEvent(EventDeclaration):
+    """申请素材图片上传（响应事件 ``qqbot.api.media_image_prepare.response``）。"""
+
+    name = 'qqbot.api.media_image_prepare.response'
+    payload_type = MediaImagePrepareResponse
+
+
+async def media_image_prepare(
+    bus_proxy: EventBus.Proxy,
+    *,
+    file_name: str,
+    file_size: int,
+    content_type: str,
+    md5: str,
+    sha1: str,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> MediaImagePrepareResult:
+    """申请素材图片上传（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'file_name': file_name,
+        'file_size': file_size,
+        'content_type': content_type,
+        'md5': md5,
+        'sha1': sha1,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=MediaImagePrepareRequestEvent.name,
+        req_data=req_data,
+        resp_event=MediaImagePrepareResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, MediaImagePrepareResponse)
+    assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
+    return response.result
+
+
+# ======================================================================
+# media_image_complete —— 完成素材图片上传
+# ======================================================================
+
+
+class MediaImageCompleteRequest(RequestProtocol):
+    """完成素材图片上传（``QQBotAPI.media_image_complete`` 请求参数）。"""
+
+    upload_id: str
+    md5: str
+
+
+class MediaImageCompleteResponse(ResponseProtocol):
+    """完成素材图片上传响应。"""
+
+    result: MediaImageCompleteResult | None = None
+
+
+@qqbot_events.event
+class MediaImageCompleteRequestEvent(EventDeclaration):
+    """完成素材图片上传（请求事件 ``qqbot.api.media_image_complete.request``）。"""
+
+    name = 'qqbot.api.media_image_complete.request'
+    payload_type = MediaImageCompleteRequest
+
+
+@qqbot_events.event
+class MediaImageCompleteResponseEvent(EventDeclaration):
+    """完成素材图片上传（响应事件 ``qqbot.api.media_image_complete.response``）。"""
+
+    name = 'qqbot.api.media_image_complete.response'
+    payload_type = MediaImageCompleteResponse
+
+
+async def media_image_complete(
+    bus_proxy: EventBus.Proxy,
+    *,
+    upload_id: str,
+    md5: str,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> MediaImageCompleteResult:
+    """完成素材图片上传（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'upload_id': upload_id,
+        'md5': md5,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=MediaImageCompleteRequestEvent.name,
+        req_data=req_data,
+        resp_event=MediaImageCompleteResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, MediaImageCompleteResponse)
+    assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
+    return response.result
+
+
+# ======================================================================
+# get_media_images —— 查询有效素材图片
+# ======================================================================
+
+
+class GetMediaImagesRequest(RequestProtocol):
+    """查询有效素材图片（``QQBotAPI.get_media_images`` 请求参数）。"""
+
+    cursor: str | None = None
+
+
+class GetMediaImagesResponse(ResponseProtocol):
+    """查询有效素材图片响应。"""
+
+    result: MediaImagePage | None = None
+
+
+@qqbot_events.event
+class GetMediaImagesRequestEvent(EventDeclaration):
+    """查询有效素材图片（请求事件 ``qqbot.api.get_media_images.request``）。"""
+
+    name = 'qqbot.api.get_media_images.request'
+    payload_type = GetMediaImagesRequest
+
+
+@qqbot_events.event
+class GetMediaImagesResponseEvent(EventDeclaration):
+    """查询有效素材图片（响应事件 ``qqbot.api.get_media_images.response``）。"""
+
+    name = 'qqbot.api.get_media_images.response'
+    payload_type = GetMediaImagesResponse
+
+
+async def get_media_images(
+    bus_proxy: EventBus.Proxy,
+    *,
+    cursor: str | None = None,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> MediaImagePage:
+    """查询有效素材图片（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'cursor': cursor,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=GetMediaImagesRequestEvent.name,
+        req_data=req_data,
+        resp_event=GetMediaImagesResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, GetMediaImagesResponse)
+    assert response.result is not None, '响应缺少 result（success=True 时不应发生）'
+    return response.result
+
+
+# ======================================================================
+# delete_media_image —— 删除素材图片
+# ======================================================================
+
+
+class DeleteMediaImageRequest(RequestProtocol):
+    """删除素材图片（``QQBotAPI.delete_media_image`` 请求参数）。"""
+
+    image_id: str
+
+
+class DeleteMediaImageResponse(ResponseProtocol):
+    """删除素材图片响应。"""
+
+    result: None = None
+
+
+@qqbot_events.event
+class DeleteMediaImageRequestEvent(EventDeclaration):
+    """删除素材图片（请求事件 ``qqbot.api.delete_media_image.request``）。"""
+
+    name = 'qqbot.api.delete_media_image.request'
+    payload_type = DeleteMediaImageRequest
+
+
+@qqbot_events.event
+class DeleteMediaImageResponseEvent(EventDeclaration):
+    """删除素材图片（响应事件 ``qqbot.api.delete_media_image.response``）。"""
+
+    name = 'qqbot.api.delete_media_image.response'
+    payload_type = DeleteMediaImageResponse
+
+
+async def delete_media_image(
+    bus_proxy: EventBus.Proxy,
+    *,
+    image_id: str,
+    session_id: str | None = None,
+    timeout: float | None = 60.0,
+) -> None:
+    """删除素材图片（强类型 RPC 客户端，底层为 ``infinity_bus.templates.request``）。"""
+    req_data: dict[str, Any] = {
+        'image_id': image_id,
+    }
+    response = await request(
+        bus_proxy=bus_proxy,
+        req_event=DeleteMediaImageRequestEvent.name,
+        req_data=req_data,
+        resp_event=DeleteMediaImageResponseEvent.name,
+        session_id=session_id,
+        timeout=timeout,
+    )
+    if not response.success:
+        raise QQBotAPIError(None, response.error_msg or 'RPC 调用失败')
+    assert isinstance(response, DeleteMediaImageResponse)
     return response.result

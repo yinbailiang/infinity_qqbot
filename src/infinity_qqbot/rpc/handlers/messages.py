@@ -21,12 +21,24 @@ from ..messages import (
     C2CUploadPrepareRequest,
     C2CUploadPrepareRequestEvent,
     C2CUploadPrepareResponseEvent,
+    DeleteMediaImageRequest,
+    DeleteMediaImageRequestEvent,
+    DeleteMediaImageResponseEvent,
+    GetMediaImagesRequest,
+    GetMediaImagesRequestEvent,
+    GetMediaImagesResponseEvent,
     GroupUploadPartFinishRequest,
     GroupUploadPartFinishRequestEvent,
     GroupUploadPartFinishResponseEvent,
     GroupUploadPrepareRequest,
     GroupUploadPrepareRequestEvent,
     GroupUploadPrepareResponseEvent,
+    MediaImageCompleteRequest,
+    MediaImageCompleteRequestEvent,
+    MediaImageCompleteResponseEvent,
+    MediaImagePrepareRequest,
+    MediaImagePrepareRequestEvent,
+    MediaImagePrepareResponseEvent,
     RecallC2CMessageRequest,
     RecallC2CMessageRequestEvent,
     RecallC2CMessageResponseEvent,
@@ -76,6 +88,7 @@ class MessageHandlersMixin(ServiceHandler):
             event_id=payload.event_id,
             msg_seq=payload.msg_seq,
             media=payload.media,
+            card=payload.card,
             message_reference=payload.message_reference,
             is_wakeup=payload.is_wakeup,
             input_notify=payload.input_notify,
@@ -192,6 +205,7 @@ class MessageHandlersMixin(ServiceHandler):
             event_id=payload.event_id,
             msg_seq=payload.msg_seq,
             media=payload.media,
+            card=payload.card,
             message_reference=payload.message_reference,
             is_wakeup=payload.is_wakeup,
             input_notify=payload.input_notify,
@@ -264,5 +278,62 @@ class MessageHandlersMixin(ServiceHandler):
             part_index=payload.part_index,
             block_size=payload.block_size,
             md5=payload.md5,
+        )
+        return {'result': None}
+
+    @process(MediaImagePrepareRequestEvent, MediaImagePrepareResponseEvent)
+    async def media_image_prepare(
+        self,
+        payload: MediaImagePrepareRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """申请素材图片上传。"""
+        result = await self._api.media_image_prepare(
+            file_name=payload.file_name,
+            file_size=payload.file_size,
+            content_type=payload.content_type,
+            md5=payload.md5,
+            sha1=payload.sha1,
+        )
+        return {'result': result}
+
+    @process(MediaImageCompleteRequestEvent, MediaImageCompleteResponseEvent)
+    async def media_image_complete(
+        self,
+        payload: MediaImageCompleteRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """完成素材图片上传。"""
+        result = await self._api.media_image_complete(
+            upload_id=payload.upload_id,
+            md5=payload.md5,
+        )
+        return {'result': result}
+
+    @process(GetMediaImagesRequestEvent, GetMediaImagesResponseEvent)
+    async def get_media_images(
+        self,
+        payload: GetMediaImagesRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """查询有效素材图片。"""
+        result = await self._api.get_media_images(
+            cursor=payload.cursor,
+        )
+        return {'result': result}
+
+    @process(DeleteMediaImageRequestEvent, DeleteMediaImageResponseEvent)
+    async def delete_media_image(
+        self,
+        payload: DeleteMediaImageRequest,
+        bus_proxy: EventBus.Proxy,
+        raw_event: Event,
+    ) -> dict[str, Any]:
+        """删除素材图片。"""
+        await self._api.delete_media_image(
+            image_id=payload.image_id,
         )
         return {'result': None}
